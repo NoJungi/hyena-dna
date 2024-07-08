@@ -158,7 +158,7 @@ import subprocess
 # import transformers
 from transformers import PreTrainedModel
 
-def inference_single():
+def inference_single(ckpt_path):
 
     '''
     this selects which backbone to use, and grabs weights/ config from HF
@@ -171,7 +171,7 @@ def inference_single():
     '''
 
     # you only need to select which model to use here, we'll do the rest!
-    pretrained_model_name = 'hyenadna-small-32k-seqlen'
+    pretrained_model_name = 'hyenadna-tiny-1k-seqlen'
 
     max_lengths = {
         'hyenadna-tiny-1k-seqlen': 1024,
@@ -207,9 +207,9 @@ def inference_single():
                                  'hyenadna-large-1m-seqlen']:
         # use the pretrained Huggingface wrapper instead
         model = HyenaDNAPreTrainedModel.from_pretrained(
-            './checkpoints',
+            ckpt_path,
             pretrained_model_name,
-            download=True,
+            download=False,
             config=backbone_cfg,
             device=device,
             use_head=use_head,
@@ -232,12 +232,16 @@ def inference_single():
 
     # create a sample 450k long, prepare
     sequence = 'ACTG' * int(max_length/4)
+    print(sequence)
     tok_seq = tokenizer(sequence)
+    print(tok_seq)
     tok_seq = tok_seq["input_ids"]  # grab ids
+    #print(tok_seq)
 
     # place on device, convert to tensor
     tok_seq = torch.LongTensor(tok_seq).unsqueeze(0)  # unsqueeze for batch dim
     tok_seq = tok_seq.to(device)
+    print(tok_seq.shape)
 
     # prep model and forward
     model.to(device)
@@ -248,7 +252,7 @@ def inference_single():
     print(embeddings.shape)  # embeddings here!
 
 # # uncomment to run! (to get embeddings)
-inference_single()
+#inference_single('./pretrained_weights/')
 
 
 # to run this, just call:

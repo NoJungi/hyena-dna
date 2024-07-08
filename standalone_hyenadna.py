@@ -753,25 +753,9 @@ class SequenceDecoder(nn.Module):
     ):
         super().__init__()
 
-        self.output_transform = nn.Identity() if d_output is None else nn.Linear(d_model, d_output)
+        self.output_transform = nn.Linear(d_model, d_output)
 
-        if l_output is None:
-            self.l_output = None
-            self.squeeze = False
-        elif l_output == 0:
-            # Equivalent to getting an output of length 1 and then squeezing
-            self.l_output = 1
-            self.squeeze = True
-        else:
-            assert l_output > 0
-            self.l_output = l_output
-            self.squeeze = False
-
-        self.use_lengths = use_lengths
-        self.mode = mode
-
-        if mode == 'ragged':
-            assert not use_lengths
+        
 
     def forward(self, x, state=None, lengths=None, l_output=None):
         """
@@ -853,6 +837,48 @@ class SequenceDecoder(nn.Module):
         # Ignore all length logic
         return self.output_transform(x)
 
+
+class GeneDecoder(nn.Module):
+    """2 linear layers that transform the ebeddings into class predictions for
+    each position of the sequence.
+    """
+    def __init__(
+        self, d_model, d_output=5, l_output=None):
+        super().__init__()
+
+        self.l_output = l_output
+
+        if l_output is not None:
+            self.linear_first = nn.Linear(l_output+2, l_output)
+            self.linear_second = nn.Linear(d_model, d_output)
+
+        else:
+            self.linear_first = nn.Linear(d_model, 32)
+            self.linear_second = nn.Linear(32, d_output)
+
+
+    def forward(self, x):
+        """
+        x: (n_batch, l_seq, d_model)
+        Returns: (n_batch, l_output, d_output)
+        """
+        if self.l_output is not None: 
+            x = rearrange(x, 'b l d -> b d l')
+
+        x = self.linear_first(x)
+
+        if self.l_output is not None: 
+            x = rearrange(x, 'b d l -> b l d')
+
+        x = self.linear_second(x)
+
+        return x
+
+    def step(self, x, state=None):
+        # Ignore all length logic
+        return self.forward(x)
+
+
 #@title Model (backbone + head)
 
 """
@@ -872,7 +898,7 @@ class HyenaDNAModel(nn.Module):
                  layer=None, attn_layer_idx=None, attn_cfg=None, max_position_embeddings=0,
                  resid_dropout: float = 0.0, embed_dropout: float = 0.1,
                  layer_norm_epsilon: float = 1e-5, initializer_cfg=None,residual_in_fp32=False,
-                 pad_vocab_size_multiple: int = 1, use_head=False, n_classes: int = 2,
+                 pad_vocab_size_multiple: int = 1, use_head=False, n_classes: int = 5,
                  device=None, dtype=None, **kwargs) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
@@ -898,7 +924,8 @@ class HyenaDNAModel(nn.Module):
         # we only need a head if doing classification, otherwise we'll use the
         # hidden states as embeddings
         if self.use_head:
-            self.head = SequenceDecoder(d_model=d_model, d_output=n_classes, l_output=0, mode='pool')
+            #self.head = SequenceDecoder(d_model=d_model, d_output=n_classes, l_output=0, mode='pool')  ### ORIGIONAL HEAD for sequence classification
+            self.head = GeneDecoder(d_model=d_model,d_output=n_classes, l_output=layer['l_max']-2)
 
         # Initialize weights and apply final processing
         self.apply(partial(_init_weights, n_layer=n_layer,
