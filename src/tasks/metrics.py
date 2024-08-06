@@ -9,6 +9,10 @@ from sklearn.metrics import f1_score, roc_auc_score, matthews_corrcoef
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassRecall, MulticlassPrecision
 
+from torchmetrics import MatthewsCorrCoef
+
+import einops
+
 class CorrectAggregatedMetric(Metric):
     """This is needed to calculate some metrics b/c small batch sizes cause aggregation via a simple
         average to be off, as some classes might not be present in batch but will get penalized with a 0."""
@@ -83,8 +87,9 @@ def mcc(logits, y):
     logits = logits.view(-1, logits.shape[-1])
     y = y.view(-1)
     y_hat = torch.argmax(logits, dim=-1)
-    return matthews_corrcoef(y.cpu().numpy(), y_hat.cpu().numpy())
-
+    #return matthews_corrcoef(y.cpu().numpy(), y_hat.cpu().numpy())
+    matthews_corrcoef = MatthewsCorrCoef(task='multiclass',num_classes=logits.shape[-1])
+    return matthews_corrcoef(y_hat.cpu(), y.cpu())
 
 def last_k_ppl(logits, y, seq_len=1024, k=None):
     '''
@@ -187,6 +192,44 @@ def soft_cross_entropy(logits, y, label_smoothing=0.0):
     logits = logits.view(-1, logits.shape[-1])
     # target is now 2d (no target flattening)
     return F.cross_entropy(logits, y, label_smoothing=label_smoothing)
+
+def custom_cce_f1(y_pred, y_true, f1_factor=2):
+    eps = 1e-7
+    batch_size = y_pred.shape[0]
+
+    # Compute the categorical cross-entropy loss
+    y_pred_cce = einops.rearrange(y_pred, 'b l c -> b c l')
+    cce_loss = F.cross_entropy(y_pred_cce, y_true) #for whole sequence length and batch size
+
+    # Compute the f1 loss
+    cds_pred = y_pred[:, :, :-1] # in BEND: last label for non-coding
+    cds_pred = F.softmax(cds_pred, dim =-1) # hyena only gives logit no predictions
+    y_true_one_hot = F.one_hot(y_true, num_classes=9) # for BEND 9 classes!
+    cds_true = y_true_one_hot[:, :, :-1]
+
+    # Compute precision and recall for the specified class
+    true_positives = torch.sum(cds_pred * cds_true, dim=1)
+    predicted_positives = torch.sum(cds_pred, dim=1)
+    possible_positives = torch.sum(cds_true, dim=1)
+    any_positives = possible_positives > 0
+    any_positives = any_positives.type(possible_positives.dtype)
+
+    precision = true_positives / (predicted_positives + eps)
+    recall = true_positives  / (possible_positives + eps)
+    
+    # For the examples with positive class, maximize the F1 score
+    f1_score = 2 * (precision * recall) / (precision + recall + eps) #f1 score per sequence
+    f1_loss = torch.sum((1 - f1_score)* any_positives) / batch_size #mean over batch with global batch size
+
+    # For the examples with no positive class, minimize the false positive rate
+    L = torch.tensor(cds_pred.shape[1], dtype=cds_pred.dtype)
+    a = (1 - any_positives).unsqueeze(dim=1)
+    fpr = torch.sum(cds_pred * a) / (L * batch_size)
+
+    # Combine CCE loss and F1 score
+    combined_loss = cce_loss + f1_factor * (f1_loss + fpr)
+
+    return combined_loss
 
 
 def accuracy(logits, y):
@@ -315,6 +358,7 @@ def ppl(x, y, loss_fn):
 output_metric_fns = {
     "binary_cross_entropy": binary_cross_entropy,
     "cross_entropy": cross_entropy,
+    "custom_cce_f1": custom_cce_f1,
     "padded_cross_entropy": padded_cross_entropy,
     "binary_accuracy": binary_accuracy,
     "precision": MulticlassPrecision,

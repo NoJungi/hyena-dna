@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - /trainer: default
+  - /loader: default
+  - /dataset: gene_finding
+  - /task: multiclass_classification
+  - /optimizer: adamw
+  - /scheduler: plateau
+  - /callbacks: [base, checkpoint]
+
+train:
+  monitor: val/mcc
+  mode: max
+
+encoder: id
+
+# we need this for classification!
+decoder:
+  _name_: short_gene

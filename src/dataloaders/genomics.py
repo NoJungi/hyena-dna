@@ -5,6 +5,9 @@ from typing import Any, List, Union
 from torch.utils.data.dataloader import DataLoader, Dataset
 from transformers import AutoTokenizer
 from datasets import Dataset
+import sys
+
+sys.path.append("/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna")
 
 from src.dataloaders.base import SequenceDataset, default_data_path
 from src.dataloaders.fault_tolerant_sampler import RandomFaultTolerantSampler
@@ -18,6 +21,8 @@ from src.dataloaders.datasets.chromatin_profile_dataset import ChromatinProfileD
 from src.dataloaders.datasets.species_dataset import SpeciesDataset
 from src.dataloaders.datasets.icl_genomics_dataset import ICLGenomicsDataset
 from src.dataloaders.datasets.hg38_fixed_dataset import HG38FixedDataset
+
+from src.dataloaders.datasets.gene_finding_dataset import BendDataset
 
 
 """
@@ -720,20 +725,97 @@ class HG38Fixed(HG38):
 
         self.dataset_val = self.dataset_train
         self.dataset_test = self.dataset_train
+
+class Bend_gene_finding(HG38):
+    _name_ = "gene_finding"
+
+    """Dataloader for Training on Bend gene-finding task."""
+
+    def __init__(self, bed_file, fasta_file, label_file, max_length=1024, d_output=9, overlap=True,
+                 add_eos=True, val_only=False, batch_size=32, batch_size_eval=None, num_workers=1,
+                 shuffle=True, pin_memory=False, drop_last=False, fault_tolerant=False, ddp=False,
+                 fast_forward_epochs=None, fast_forward_batches=None, replace_N_token=False, tokenizer=None,
+                 *args, **kwargs):
+  
+        self.fasta_file = fasta_file
+        self.bed_file = bed_file
+        self.label_file = label_file
+        self.max_length = max_length
+        self.add_eos = add_eos
+        self.batch_size = batch_size
+        self.batch_size_eval = batch_size
+        self.num_workers = num_workers
+        self.shuffle = shuffle
+        self.pin_memory = pin_memory
+        self.drop_last = drop_last
+        self.replace_N_token = replace_N_token
+        self.d_output = d_output
+        self.overlap = overlap
+        self.val_only = val_only
+        self.tokenizer=tokenizer
+
+        self.seq_length = self.max_length
+        if self.add_eos == False:
+            self.seq_length += 2
+        
+
+        if fault_tolerant:
+            assert self.shuffle
+        self.fault_tolerant = fault_tolerant
+        if ddp:
+            assert fault_tolerant
+        self.ddp = ddp
+        self.fast_forward_epochs = fast_forward_epochs
+        self.fast_forward_batches = fast_forward_batches
+        if self.fast_forward_epochs is not None or self.fast_forward_batches is not None:
+            assert ddp and fault_tolerant
+
+        if self.fasta_file is None:
+            self.fasta_file = default_data_path / "gene_finding" / 'GRCH38.primary_assembly.genome.fa'
+
+    def setup(self, stage=None):
+
+        # Create tokenizer
+        self.tokenizer = CharacterTokenizer(
+            characters=['A', 'C', 'G', 'T', 'N'],
+            model_max_length= self.max_length +  2,  # add 2 since default adds eos/eos tokens, crop later
+            add_special_tokens=False,
+        )
+
+       # delete old datasets to free memory
+        if hasattr(self, 'dataset_train'):
+            self.dataset_train.fasta.seqs.close()
+            del self.dataset_train.fasta.seqs
+
+        # delete old datasets to free memory
+        if hasattr(self, 'dataset_test'):
+            self.dataset_test.fasta.seqs.close()
+            del self.dataset_test.fasta.seqs
     
+        # Create all splits: torch datasets
+        self.dataset_train, self.dataset_val, self.dataset_test = [
+            BendDataset(split=split,
+                        overlap=overlap,
+                        bed_file=self.bed_file,
+                        fasta_file=self.fasta_file,
+                        label_file=self.label_file,
+                        max_length=self.max_length,
+                        tokenizer=self.tokenizer,  # pass the tokenize wrapper
+                        add_eos=self.add_eos,
+                        replace_N_token=self.replace_N_token,
+                        batch_size=self.batch_size)
+            for split, overlap in zip(['train', 'valid', 'test'], [self.overlap, False, False])
+        ]
+    
+if __name__ == '__main__':
+    """Quick test using dataloader. Can't call from here though."""
 
-# if __name__ == '__main__':
-#     """Quick test using dataloader. Can't call from here though."""
-
-#     loader = HG38(
-#         bed_file='/home/exnx/enformer-pytorch/data/basenji/human-sequences.bed',
-#         fasta_file='/home/exnx/enformer-pytorch/data/basenji/hg38.ml.fa',
-#         tokenizer_name='char_level', max_length=2000
-#     )
-
-    # breakpoint()
-
-    # it = iter(ds)
-    # elem = next(it)
-    # print(len(elem))
-    # breakpoint()
+    loader = Bend_gene_finding(
+        bed_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed',
+        fasta_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCH38.pyrimary_assembly.genome.fa',
+        label_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5'
+    )
+    ds = loader.train_dataloader()
+    it = iter(ds)
+    elem = next(it)
+    print(len(elem))

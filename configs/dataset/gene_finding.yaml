@@ -1,0 +1,9 @@
+# @package _global_
+_name_: gene_finding
+bed_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
+fasta_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
+label_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
+max_length: 1024
+d_output: 9
+add_eos: False
+batch_size: 32
