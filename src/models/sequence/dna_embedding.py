@@ -9,7 +9,7 @@ from flash_attn.utils.generation import GenerationMixin
 from flash_attn.utils.distributed import sync_shared_params
 
 try:
-    from flash_attention.ops.fused_dense import ColumnParallelLinear
+    from flash_attn.ops.fused_dense import ColumnParallelLinear
 except ImportError:
     ColumnParallelLinear = None
 
