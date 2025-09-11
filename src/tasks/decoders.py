@@ -244,8 +244,47 @@ class ShortGeneDecoder(nn.Module):
         # Ignore all length logic
         return self.forward(x)
 
+class LinearGeneDecoder(nn.Module):
+    """3 linear layers that transform the ebeddings into class predictions for
+    each position of the sequence.
+    """
+
+    def __init__(
+        self, d_model, d_output=9, activation="ReLU"):
+
+        super().__init__()
+        self.d_model = d_model
+        self.d_output = d_output
+        self.inner_size_1 = int(self.d_model/2)
+        self.inner_size_2 = int(self.inner_size_1/2)
+
+        if activation == "ReLU":
+            self.activation = nn.ReLU()
+        elif activation == "Tanh":
+            self.activation = nn.Tanh()
+
+        self.linear_layers = nn.Sequential(
+            nn.Linear(self.d_model, self.inner_size_1),
+            self.activation,
+            nn.Linear(self.inner_size_1, self.inner_size_2),
+            self.activation,
+            nn.Linear(self.inner_size_2, self.d_output),
+            self.activation
+        )
+    def forward(self, x):
+        """
+        x: (n_batch, l_seq, d_model)
+        Returns: (n_batch, l_output, d_output)
+        """
+        x = self.linear_layers(x)
+        return x
+
+    def step(self, x, state=None):
+        # Ignore all length logic
+        return self.forward(x)
+
 class ConvGeneDecoder(nn.Module):
-    """2 linear layers that transform the ebeddings into class predictions for
+    """2d convolutional layers that transform the ebeddings into class predictions for
     each position of the sequence.
     """
 
@@ -284,6 +323,84 @@ class ConvGeneDecoder(nn.Module):
     def step(self, x, state=None):
         # Ignore all length logic
         return self.forward(x)
+
+
+class CNN_BEND(nn.Module):
+    """
+    Adapted form BEND.
+    A two-layer CNN with step size 1, ReLU activation, and a linear layer.
+    """
+    def __init__(self, d_model, 
+                 d_output=9, 
+                 hidden_size=64, 
+                 kernel_size=3):
+        """
+        Build a two-layer CNN with step size 1, GeLU activation, and a linear layer.
+
+        Parameters
+        ----------
+        d_model: int
+            The embedding size of the input sequence.
+        d_output: int
+            The size of the output sequence.
+        hidden_size: int
+            The number of channels in the convolutional layers.
+        kernel_size: int
+            The kernel size of the convolutional layers.
+        """
+        super(CNN_BEND, self).__init__()
+        self.output_size = d_output
+
+        self.conv1 = nn.Sequential(TransposeLayer(), 
+                                   nn.Conv1d(input_size, hidden_size, kernel_size, stride = 1, padding = 1), 
+                                   TransposeLayer(),
+                                   nn.GELU())
+        
+        self.conv2 = nn.Sequential(TransposeLayer(), 
+                                   nn.Conv1d(hidden_size, hidden_size, kernel_size, stride = 1, padding = 1), 
+                                   TransposeLayer(), 
+                                   nn.GELU(),
+                                  )
+
+        self.linear = nn.Sequential(nn.Linear(hidden_size, output_size))
+        #self.softmax =  nn.Softmax(dim = -1)
+        #self.softplus = nn.Softplus()
+        #self.sigmoid = nn.Sigmoid()
+        
+    def forward(self, x, activation = 'none'):
+        """
+        Forward pass of the CNN.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Input tensor. Should have shape (batch_size, length, embedding_size).
+        activation: str
+            The activation function to use. Can be 'softmax', 'softplus', 'sigmoid', or 'none'.
+        Returns
+        -------
+        torch.Tensor
+            Output tensor. Has shape (batch_size, output_length, output_size).
+            output_length is determined by the input length, the upsampling factor, and the output downsampling window.
+
+        """
+        # 1st conv layer
+        x = self.conv1(x)
+        # 2nd conv layer 
+        x = self.conv2(x)
+        # linear layer 
+        x = self.linear(x)
+        #if activation =='softmax': 
+        #    x = self.softmax(x)
+        #elif activation == 'softplus':
+        #    x = self.softplus(x)
+        #elif activation == 'sigmoid':
+        #    x = self.sigmoid(x)
+        return x
+    def step(self, x, state=None):
+        # Ignore all length logic
+        return self.forward(x)
+    
 
 class TokenDecoder(Decoder):
     """Decoder for token level classification"""
