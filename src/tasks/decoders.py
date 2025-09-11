@@ -283,6 +283,37 @@ class LinearGeneDecoder(nn.Module):
         # Ignore all length logic
         return self.forward(x)
 
+class SimpleLinearGeneDecoder(nn.Module):
+    """1 simple linear layer that transform the ebeddings into class predictions for
+    each position of the sequence.
+    """
+
+    def __init__(
+        self, d_model, d_output=9):
+
+        super().__init__()
+        self.d_model = d_model
+        self.d_output = d_output
+
+        self.activation = nn.Sigmoid
+
+        self.linear_layer = nn.Sequential(
+            nn.Linear(self.d_model, self.d_output),
+            self.activation,
+        )
+
+    def forward(self, x):
+        """
+        x: (n_batch, l_seq, d_model)
+        Returns: (n_batch, l_output, d_output)
+        """
+        x = self.linear_layer(x)
+        return x
+
+    def step(self, x, state=None):
+        # Ignore all length logic
+        return self.forward(x)
+
 class ConvGeneDecoder(nn.Module):
     """2d convolutional layers that transform the ebeddings into class predictions for
     each position of the sequence.
@@ -547,6 +578,9 @@ registry = {
     "gene": GeneDecoder,
     "short_gene": ShortGeneDecoder,
     "conv_gene": ConvGeneDecoder,
+    "simple_dense": SimpleLinearGeneDecoder,
+    "CNN_BEND": CNN_BEND,
+    "linear_gene": LinearGeneDecoder,
     "nd": NDDecoder,
     "retrieval": RetrievalDecoder,
     "state": StateDecoder,
@@ -559,6 +593,9 @@ model_attrs = {
     "gene": ["d_model"],
     "short_gene": ["d_model"],
     "conv_gene": ["d_model"],
+    "simple_dense": ["d_model"],
+    "CNN_BEND": ["d_model"],
+    "linear_gene": ["d_model"],
     "nd": ["d_output"],
     "retrieval": ["d_output"],
     "state": ["d_state", "state_to_tensor"],
@@ -572,6 +609,9 @@ dataset_attrs = {
     "gene":["max_length", "d_output"],
     "short_gene":["d_output"],
     "conv_gene": ["d_output"],
+    "simple_dense": ["d_output"],
+    "CNN_BEND": ["d_output"],
+    "linear_gene": ["d_output"],
     "nd": ["d_output"],
     "retrieval": ["d_output"],
     "state": ["d_output"],
