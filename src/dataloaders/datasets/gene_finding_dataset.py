@@ -6,11 +6,8 @@ import torch
 from random import randrange, random
 import numpy as np
 import h5py
-import sys
 
-sys.path.append("/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna")
-
-from standalone_hyenadna import CharacterTokenizer
+from hg38_char_tokenizer import CharacterTokenizer
 
 
 """
@@ -18,34 +15,6 @@ from standalone_hyenadna import CharacterTokenizer
 Dataset for sampling intervals from human refernce genome.
 
 """
-
-# augmentations
-
-string_complement_map = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-
-def string_reverse_complement(seq):  # don't think I will need this...
-    rev_comp = ''
-    for base in seq[::-1]:
-        if base in string_complement_map:
-            rev_comp += string_complement_map[base]
-        # if bp not complement map, use the same bp
-        else:
-            rev_comp += base
-    return rev_comp
-
-def label_compression(labels):
-    new_labels = []
-    for label in labels:
-        #print("LABEL", label)
-        if(label in [2,6,8]): # Non-coding
-            new_labels.append(0)
-        else:
-            new_labels.append(1)
-        #print("NEW LABEL", new_labels[-1])
-
-    return new_labels
-
-
 
 class FastaInterval():
     def __init__(
@@ -81,29 +50,43 @@ class BendDataset(torch.utils.data.Dataset):
         fasta_file,
         label_file,
         max_length,
-        overlap=False,
-        tokenizer=None,
-        #tokenizer_name=None,
+        batch_size=64,
         add_eos=False,
-        replace_N_token=False,  # replace N token with pad token
-        batch_size=32,
-        compress_labels=False # True->binary labels coding and non-coding ( -strand is reverse complemented)
+        last_chunk_overlap=False,
     ):
+        """
+        Initialize dataset used by BEND for gene finding task. All sequences longer than max_length are 
+        split into chunks of max_length. For sequences that are not a multiple of max_length, the last 
+        chunk is either overlapping with the previous chunk or padded to max_length. When the last chunk 
+        is overlapping (last_chunk_overlap=True) with previous chunk the overlap is not accounted for in 
+        the loss, since these positions are already predicted in the previous chunk. Overlapping allows 
+        to have the same context length for each chunk. When last_chunk_overlap=False, the last chunk is 
+        padded to max_length resulting in shorter context for the last chunk.
+        
+        Args:
+            split:                  'train', 'val', 'test'
+            bed_file:               path to .bed file with columns: chromosome, start, end, strand, length, split
+            fasta_file:             path to .fasta file
+            label_file:             path to .hdf5 file containing labels for each nucleotide
+            max_length:             maximum length of sequences
+            batch_size:             batch size
+            add_eos:                whether to add end-of-sequence and start-of-sequence token
+            last_chunk_overlap:     whether to overlap last chunk or just add padding
+        """
 
         self.max_length = max_length
-        #self.tokenizer_name = tokenizer_name
-        self.tokenizer = tokenizer
         self.add_eos = add_eos
-        self.replace_N_token = replace_N_token  
+        if self.add_eos:
+            self.max_length -= 2 # account for adding eos and sos
         self.batch_size = batch_size
-        self.seq_length = max_length
-        self.overlap = overlap
-        if self.overlap:
-            self.step = int(self.max_length/2)
-        else:
-            self.step = self.max_length
-        self.compress_labels = compress_labels
+        self.last_chunk_overlap = last_chunk_overlap
 
+        self.tokenizer = CharacterTokenizer(
+                characters=['A', 'C', 'G', 'T', 'N'],  # add DNA characters, N is uncertain
+                model_max_length=self.max_length,
+                add_special_tokens=True if self.add_eos else False,
+                truncation=True
+        )
 
         bed_path = Path(bed_file)
         assert bed_path.exists(), 'path to .bed file must exist'
@@ -112,44 +95,47 @@ class BendDataset(torch.utils.data.Dataset):
         assert label_path.exists(), 'path to .hdf5 file must exist'
 
         # read bed file
-        df_raw = pd.read_csv(str(bed_path), sep='\t', 
+        df_raw = pd.read_csv(
+            str(bed_path), 
+            sep='\t', 
             usecols=['chromosome', 'start', 'end','strand', 'length', 'split']
         )
         df_raw = df_raw.reset_index()
-        # select only split df
-        df_raw = df_raw[df_raw['split'] == split]
+        df_raw = df_raw[df_raw['split'] == split] # select split
 
         # get intervals with length max_length
         self.df = pd.DataFrame(columns=['chromosome', 'start', 'end','strand', 'length', 'label_index', 'label_start'])
         i=0
         for row in df_raw.iterrows():
+            print(f"i: {i}")
+            print(f"len df: {len(self.df)}")
+
             label_index = row[0]
             row = row[1]
-            if row['length'] <= self.seq_length :
+
+            print(f"label_index: {label_index}")
+            print(f"row: {row}")
+
+            if row['length'] <= self.max_length: # no chunks needed, only padding
                 self.df.loc[i] = [row['chromosome'], row['start'], row['end'], row['strand'], row['length'], label_index, 0]
                 i +=1
-            else:
-                nr_full_chunks = int(row['length'] / self.seq_length)
-                last_chunk_length = row['length'] % self.seq_length
-                if overlap:
-                    if (last_chunk_length - (self.max_length/2)) > self.max_length/5:
-                        nr_full_chunks += nr_full_chunks
-                    else:
-                        nr_full_chunks += nr_full_chunks -1
+            else: # cut into chunks of max_length
+                nr_full_chunks = int(row['length'] / self.max_length)
+                last_chunk_length = row['length'] % self.max_length
 
                 label_start = 0
                 start = row['start']
 
-                for j in range(0,nr_full_chunks):
-                    end = start + self.seq_length
-                    self.df.loc[i] = [row['chromosome'], start, end, row['strand'], self.seq_length, label_index, label_start]
-                    start += self.step 
-                    label_start += self.step
+                for _ in range(nr_full_chunks):
+                    end = start + self.max_length
+                    self.df.loc[i] = [row['chromosome'], start, end, row['strand'], self.max_length, label_index, label_start]
+                    start += self.max_length
+                    label_start += self.max_length
                     i += 1
                 if last_chunk_length > 0:
-                    label_start = row['length'] - self.seq_length
-                    start = row['end'] - self.seq_length
-                    self.df.loc[i] = [row['chromosome'], start, row['end'], row['strand'], self.seq_length, label_index, label_start]
+                    if self.last_chunk_overlap: # set the starting index of nucleotides in the last chunk to be max_length before the end
+                        start = row['end'] - self.max_length
+                    self.df.loc[i] = [row['chromosome'], start, row['end'], row['strand'], last_chunk_length, label_index, label_start]
                     i += 1
 
         self.fasta = FastaInterval(fasta_file = fasta_file)
@@ -166,42 +152,43 @@ class BendDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         """Returns a sequence of specified len"""
-        # sample a random row from df
-        row = self.df.iloc[idx]
-        # row = (chr, start, end, strand, length, label_index, label_start)
-        chr_name, start, end, strand, length, label_index = (row[0], row[1], row[2], row[3], row[4], row[5])
 
+        # sample the row from df
+        row = self.df.iloc[idx]  
+        # row = (chr, start, end, strand, length, label_index, label_start)
+        chr_name, start, end, strand, length, label_index, label_start = (row[0], row[1], row[2], row[3], row[4], row[5], row[6])
+
+        # get sequence
         seq = self.fasta(chr_name, start, end)
 
-        #if self.tokenizer_name == 'char':
-        if (self.compress_labels and strand=='-'):
-            seq = string_reverse_complement(seq)
-
+        # tokenize sequence (and add padding if sequence is shorter than max_length)
         seq = self.tokenizer(seq,
-            add_special_tokens=True if self.add_eos else False,  # this is what controls adding eos
+            add_special_tokens=True if self.add_eos else False,  # this is what controls adding eos not params in __init__
             padding="max_length",
-            max_length=self.max_length,
+            max_length=self.max_length, #default: add padding on left
             truncation=True,
         )
         seq = seq["input_ids"]  # get input_ids
-        
-        # convert to tensor return seq, label
-        seq = torch.LongTensor(seq)  # hack, remove the initial cls tokens for now
+        seq = torch.LongTensor(seq) # convert to tensor
 
-        if self.replace_N_token:
-            # replace N token with a pad token, so we can ignore it in the loss
-            seq = self.replace_value(seq, self.tokenizer._vocab_str_to_int['N'], self.tokenizer.pad_token_id)
-
-        # get Target: classes for each nucleotide
+        # get Target: classes for each nucleotide (and add padding labels for shorter sequences)
         label_index = row['label_index']
+        print(f"label_index: {label_index}")
+        print(f"row[5]: {row[5]}")
         label_start = row['label_start']
+        print(f"label_start: {label_start}")
+        print(f"row[6]: {row[6]}")
         length = row['length']
+        print(f"length: {length}")
+        print(f"row[4]: {row[4]}")
+
         label = self.labels[label_index]
         label = label[label_start:(label_start + length)]
-        if (self.compress_labels):
-            label = label_compression(label)
-            if(strand == '-'):
-                label = label[::-1] 
+
+        # add padding labels on the left if length < max_length
+        if length < self.max_length:
+            pad_length = self.max_length - length
+            label = np.pad(label, (pad_length, 0), 'constant', constant_values=-100)  # -100 is the ignore index for CrossEntropyLoss
         label = torch.LongTensor(label)
 
         return seq, label
@@ -214,18 +201,11 @@ if __name__ == '__main__':
 
     max_length = 1026
 
-    tokenizer = CharacterTokenizer(
-                characters=['A', 'C', 'G', 'T', 'N'],  # add DNA characters, N is uncertain
-                model_max_length=max_length,
-                add_special_tokens=False,
-                padding_side='right')
-
     dataset = BendDataset(split='test',
         bed_file=bed_file,
         fasta_file=fasta_file,
         label_file=label_file,
         max_length=max_length,
-        tokenizer=tokenizer,
         add_eos=False)
 
     print("LENGTH DF:", dataset.__len__())
@@ -235,7 +215,5 @@ if __name__ == '__main__':
     print(seq)
     print(len(label))
     print(label)
-    print(strand)
-    print(label_index)
 
 
