@@ -9,10 +9,11 @@ dataset:
   label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
   max_length: 1026
   add_eos: False
-  pad_value: -100 # default for some metrices implemented by HyenaDNA
-  d_output: 9        # not needed by dataset directly but for config entries below
-  batch_size: 64     # not needed by dataset directly
-  train_size: 37000  # not needed by dataset directly
+  last_chunk_overlap: False
+  pad_value: -100             # default for metrices and loss implemented by HyenaDNA
+  d_output: 9                 # not needed by dataset directly but for config entries below
+  batch_size: 64              # not needed by dataset directly
+  train_size: 37000           # not needed by dataset directly
 
 model:
   _name_: dna_embedding
@@ -31,7 +32,7 @@ model:
     emb_dim: 5
     filter_order: 64
     short_filter_order: 3
-    #order: 3 #nr. of convolutions per layer (n-1 conv)
+    #order: 3    #nr. of convolutions per layer (n-1 conv)
     l_max: 1026  # required to be set the same as the pretrained model, don't forget the +2 if eos/sos used!  ${eval:${dataset.max_length}+2}
     modulate: True
     w: 10
@@ -41,11 +42,11 @@ model:
 
 task:
   loss:
-    _name_: custom_cce_f1 #cross_entropy
+    _name_: custom_cce_f1             # or: cross_entropy
     batch_size: ${dataset.batch_size}
     pad_value: ${dataset.pad_value}
   metrics:
-    - accuracy
+    - accuracy_ignore_index           # ignores padding index
     - mcc
 
 trainer:
@@ -73,7 +74,7 @@ train:
   gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
   seed: 22
   global_batch_size: ${dataset.batch_size}
-  remove_test_loader_in_eval: False  # True: no test set in this benchmark
+  remove_test_loader_in_eval: False  # True: no test set
   pretrained_model_strict_load: False  # false allows encoder/decoder to be used if new model uses it
   # for loading backbone and not head, requires both of these flags below
   pretrained_model_path: /home/s-nojung/Masterarbeit/Code/hyena-dna/pretrained_weights/hyenadna-tiny-1k-seqlen/weights.ckpt

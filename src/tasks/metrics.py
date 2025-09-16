@@ -218,13 +218,15 @@ def custom_cce_f1(y_pred, y_true,
             y_pred = F.softmax(y_pred, dim=-1)
 
     # compute mask for to ignore padding:
-    pad_mask = (y_true != pad_value).unsqueeze(-1) # shape [batch_L,1]
+    pad_mask = (y_true != pad_value).unsqueeze(-1) # shape [batch L,1]
     y_true_one_hot = torch.where(y_true == pad_value,
                                  torch.zeros_like(y_true),  # replace -1 by 0, otherwise one-hot encoding has additional padding class
                                  y_true)
-    # one-hot encode y_true
+    
+    # one-hot encode y_true and apply padding mask to labels and predictions
     y_true_one_hot = F.one_hot(y_true_one_hot, num_classes=9) # for BEND 9 classes, Hyena onl has label indices, no one-hot encodined labelsy_true_one_hot = y_true_one_hot * mask
-    y_true_one_hot = y_true_one_hot * mask # apply padding mask so that padding has no class in the one-hot encoding
+    y_true_one_hot = y_true_one_hot * pad_mask # apply padding mask so that padding has no class in the one-hot encoding
+    y_pred = y_pred * pad_mask                 # apply padding mask to predictions
 
 
     # Compute the f1 loss (for BEND dataset with 9 classes!)
@@ -247,9 +249,11 @@ def custom_cce_f1(y_pred, y_true,
     f1_loss = torch.sum((1 - f1_score) * any_positives) / batch_size #mean over batch with global batch size
 
     # For the examples with no positive class, minimize the false positive rate
-    L = cds_pred.shape[1].type(dtype=cds_pred.dtype)cds_pre
+        #L = torch.tensor(cds_pred.shape[1], dtype=cds_pred.dtype)
+    L = pad_mask.squeeze(-1).sum(dim=1)              # shape: [batch]
+    L = L.unsqueeze(dim=-1).unsqueeze(dim=-1)        # shape: [batch, 1, 1]
     a = (1 - any_positives).unsqueeze(dim=1)
-    fpr = torch.sum(cds_pred * a) / (L * batch_size)
+    fpr = torch.sum(cds_pred * a / L) / (batch_size) # normalize each sample by its length without padding
 
     # Combine CCE loss and F1 score
     combined_loss = cce_loss + f1_factor * (f1_loss + fpr)
@@ -267,9 +271,9 @@ def accuracy(logits, y):
 
 
 def accuracy_ignore_index(logits, y, ignore_index=-100):
+    logits = logits.view(-1, logits.shape[-1])
     num_classes = logits.shape[-1]
     preds = torch.argmax(logits, dim=-1)
-    logits = logits.view(-1, logits.shape[-1])
     y = y.view(-1)
     accuracy = tm_f.classification.accuracy(preds, y, 'multiclass', num_classes=num_classes, ignore_index=ignore_index, average='micro')
     return accuracy
