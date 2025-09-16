@@ -33,6 +33,19 @@ def string_reverse_complement(seq):  # don't think I will need this...
             rev_comp += base
     return rev_comp
 
+def label_compression(labels):
+    new_labels = []
+    for label in labels:
+        #print("LABEL", label)
+        if(label in [2,6,8]): # Non-coding
+            new_labels.append(0)
+        else:
+            new_labels.append(1)
+        #print("NEW LABEL", new_labels[-1])
+
+    return new_labels
+
+
 
 class FastaInterval():
     def __init__(
@@ -73,7 +86,8 @@ class BendDataset(torch.utils.data.Dataset):
         #tokenizer_name=None,
         add_eos=False,
         replace_N_token=False,  # replace N token with pad token
-        batch_size=32
+        batch_size=32,
+        compress_labels=False # True->binary labels coding and non-coding ( -strand is reverse complemented)
     ):
 
         self.max_length = max_length
@@ -88,6 +102,7 @@ class BendDataset(torch.utils.data.Dataset):
             self.step = int(self.max_length/2)
         else:
             self.step = self.max_length
+        self.compress_labels = compress_labels
 
 
         bed_path = Path(bed_file)
@@ -110,7 +125,7 @@ class BendDataset(torch.utils.data.Dataset):
         for row in df_raw.iterrows():
             label_index = row[0]
             row = row[1]
-            if row['length'] <= self.seq_length :  # -2 specialTokens
+            if row['length'] <= self.seq_length :
                 self.df.loc[i] = [row['chromosome'], row['start'], row['end'], row['strand'], row['length'], label_index, 0]
                 i +=1
             else:
@@ -159,6 +174,8 @@ class BendDataset(torch.utils.data.Dataset):
         seq = self.fasta(chr_name, start, end)
 
         #if self.tokenizer_name == 'char':
+        if (self.compress_labels and strand=='-'):
+            seq = string_reverse_complement(seq)
 
         seq = self.tokenizer(seq,
             add_special_tokens=True if self.add_eos else False,  # this is what controls adding eos
@@ -168,7 +185,7 @@ class BendDataset(torch.utils.data.Dataset):
         )
         seq = seq["input_ids"]  # get input_ids
         
-        # convert to tensor
+        # convert to tensor return seq, label
         seq = torch.LongTensor(seq)  # hack, remove the initial cls tokens for now
 
         if self.replace_N_token:
@@ -181,6 +198,10 @@ class BendDataset(torch.utils.data.Dataset):
         length = row['length']
         label = self.labels[label_index]
         label = label[label_start:(label_start + length)]
+        if (self.compress_labels):
+            label = label_compression(label)
+            if(strand == '-'):
+                label = label[::-1] 
         label = torch.LongTensor(label)
 
         return seq, label
