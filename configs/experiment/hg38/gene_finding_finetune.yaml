@@ -7,11 +7,12 @@ dataset:
   bed_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
   fasta_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
   label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
-  max_length: 1024
-  d_output: 9
+  max_length: 1026
   add_eos: False
-  batch_size: 32
-  train_size: 70000
+  pad_value: -100 # default for some metrices implemented by HyenaDNA
+  d_output: 9        # not needed by dataset directly but for config entries below
+  batch_size: 64     # not needed by dataset directly
+  train_size: 37000  # not needed by dataset directly
 
 model:
   _name_: dna_embedding
@@ -22,7 +23,7 @@ model:
   resid_dropout: 0.0
   embed_dropout: 0.1
   fused_mlp: False # figure out how to use fused MLP, maybe only with bf16 + a100
-  fused_dropout_add_ln: False # damit keine ERROR? weil nicht installiert...
+  fused_dropout_add_ln: True
   residual_in_fp32: True
   pad_vocab_size_multiple: 8
   layer:
@@ -31,7 +32,7 @@ model:
     filter_order: 64
     short_filter_order: 3
     #order: 3 #nr. of convolutions per layer (n-1 conv)
-    l_max: 1026  # required to be set the same as the pretrained model if using, don't forget the +2!  ${eval:${dataset.max_length}+2}
+    l_max: 1026  # required to be set the same as the pretrained model, don't forget the +2 if eos/sos used!  ${eval:${dataset.max_length}+2}
     modulate: True
     w: 10
     lr: ${optimizer.lr}
@@ -39,13 +40,10 @@ model:
     lr_pos_emb: 0.0
 
 task:
-  # 2 options for soft_cross_entropy (for mixup)
   loss:
-    # soft_cross_entropy for pytorch 1.10+, which takes in label_smoothing here
     _name_: custom_cce_f1 #cross_entropy
-    # label_smoothing: 0.1
-  # pass in list of k's
-  # last_k_ppl: null
+    batch_size: ${dataset.batch_size}
+    pad_value: ${dataset.pad_value}
   metrics:
     - accuracy
     - mcc
@@ -62,13 +60,13 @@ trainer:
 
 scheduler:
   t_in_epochs: False
-  t_initial:  328200  #${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs}}
+  t_initial: ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs}}
   warmup_lr_init: 1e-6
-  warmup_t:  3282 # ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
+  warmup_t:  ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
   lr_min: ${eval:0.1 * ${optimizer.lr}}
 
 optimizer:
-  lr: 6e-5
+  lr: 6e-4
   weight_decay: 0.1
 
 train:

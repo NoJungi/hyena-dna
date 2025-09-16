@@ -83,13 +83,18 @@ class RecallPerClass(CorrectAggregatedMetric):
         return numerator, denominator
 
 
-def mcc(logits, y):
+def mcc(logits, y, pad_value=-100):
     logits = logits.view(-1, logits.shape[-1])
     y = y.view(-1)
-    y_hat = torch.argmax(logits, dim=-1)
-    #return matthews_corrcoef(y.cpu().numpy(), y_hat.cpu().numpy())
-    matthews_corrcoef = MatthewsCorrCoef(task='multiclass',num_classes=logits.shape[-1])
-    return matthews_corrcoef(y_hat.cpu(), y.cpu())
+    y_pred = torch.argmax(logits, dim=-1) # get predicted class indices for MCC
+
+    # ignore padded values
+    mask = (y != pad_value) 
+    y_pred_masked = y_pred[mask]
+    y_true_masked = y[mask]
+
+    mcc_metric = MatthewsCorrCoef(task='multiclass', num_classes=logits.shape[-1])
+    return mcc_metric(y_pred_masked.cpu(), y_true_masked.cpu())
 
 def last_k_ppl(logits, y, seq_len=1024, k=None):
     '''
@@ -193,19 +198,39 @@ def soft_cross_entropy(logits, y, label_smoothing=0.0):
     # target is now 2d (no target flattening)
     return F.cross_entropy(logits, y, label_smoothing=label_smoothing)
 
-def custom_cce_f1(y_pred, y_true, f1_factor=2):
-    eps = 1e-7
-    batch_size = y_pred.shape[0]
+def custom_cce_f1(y_pred, y_true, 
+                  batch_size, 
+                  f1_factor=2,
+                  use_cce=True,
+                  from_logits=True, # HyenaDNA outputs unnormalized logits
+                  pad_value=-100):
+    eps = 1e-7  # instead of epsilon from tensorflow.keras.backend
+    #batch_size = y_pred.shape[0]
 
-    # Compute the categorical cross-entropy loss
-    y_pred_cce = einops.rearrange(y_pred, 'b l c -> b c l')
-    cce_loss = F.cross_entropy(y_pred_cce, y_true) #for whole sequence length and batch size
+    if use_cce:
+        # Compute the categorical cross-entropy loss (in pytorch from unnormalized logits)
+        y_pred_cce = einops.rearrange(y_pred, 'b l c -> b c l') # right order to apply F.cross_entropy 
+        cce_loss = F.cross_entropy(y_pred_cce, y_true, ignore_index=pad_value) #deafault: mean over sequence length and batch size
+    else:
+        cce_loss = 0
 
-    # Compute the f1 loss
-    cds_pred = y_pred[:, :, :-1] # in BEND: last label for non-coding
-    cds_pred = F.softmax(cds_pred, dim =-1) # hyena only gives logit no predictions
-    y_true_one_hot = F.one_hot(y_true, num_classes=9) # for BEND 9 classes!
-    cds_true = y_true_one_hot[:, :, :-1]
+    if from_logits:
+            y_pred = F.softmax(y_pred, dim=-1)
+
+    # compute mask for to ignore padding:
+    pad_mask = (y_true != pad_value).unsqueeze(-1) # shape [batch_L,1]
+    y_true_one_hot = torch.where(y_true == pad_value,
+                                 torch.zeros_like(y_true),  # replace -1 by 0, otherwise one-hot encoding has additional padding class
+                                 y_true)
+    # one-hot encode y_true
+    y_true_one_hot = F.one_hot(y_true_one_hot, num_classes=9) # for BEND 9 classes, Hyena onl has label indices, no one-hot encodined labelsy_true_one_hot = y_true_one_hot * mask
+    y_true_one_hot = y_true_one_hot * mask # apply padding mask so that padding has no class in the one-hot encoding
+
+
+    # Compute the f1 loss (for BEND dataset with 9 classes!)
+    cds_indices = [0, 1, 3, 4, 5, 7] # only coding sequence, no introns(2, 5) or non-coding (8)
+    cds_pred = y_pred[:, :, cds_indices]
+    cds_true = y_true_one_hot[:, :, cds_indices]
 
     # Compute precision and recall for the specified class
     true_positives = torch.sum(cds_pred * cds_true, dim=1)
@@ -219,10 +244,10 @@ def custom_cce_f1(y_pred, y_true, f1_factor=2):
     
     # For the examples with positive class, maximize the F1 score
     f1_score = 2 * (precision * recall) / (precision + recall + eps) #f1 score per sequence
-    f1_loss = torch.sum((1 - f1_score)* any_positives) / batch_size #mean over batch with global batch size
+    f1_loss = torch.sum((1 - f1_score) * any_positives) / batch_size #mean over batch with global batch size
 
     # For the examples with no positive class, minimize the false positive rate
-    L = torch.tensor(cds_pred.shape[1], dtype=cds_pred.dtype)
+    L = cds_pred.shape[1].type(dtype=cds_pred.dtype)cds_pre
     a = (1 - any_positives).unsqueeze(dim=1)
     fpr = torch.sum(cds_pred * a) / (L * batch_size)
 
@@ -230,7 +255,6 @@ def custom_cce_f1(y_pred, y_true, f1_factor=2):
     combined_loss = cce_loss + f1_factor * (f1_loss + fpr)
 
     return combined_loss
-
 
 def accuracy(logits, y):
     logits = logits.view(-1, logits.shape[-1])
