@@ -9,11 +9,11 @@ defaults:
   - /callbacks: [base, checkpoint]
 
 train:
-  monitor: val/mcc
-  mode: max
+  monitor: val/loss
+  mode: min
 
 encoder: id
 
 # we need this for classification!
 decoder:
-  _name_: short_gene
+  _name_: CNN_BEND

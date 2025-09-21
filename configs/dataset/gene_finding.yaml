@@ -1,9 +1,14 @@
 # @package _global_
 _name_: gene_finding
-bed_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
-fasta_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
-label_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
-max_length: 1024
-d_output: 9
+bed_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
+fasta_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
+label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
+max_length: 1026            # max input length, sequences longer than this will be chunked# when loading pretrained models is required to be set the same as the pretrained model
 add_eos: False
-batch_size: 32
+last_chunk_overlap: False
+pad_value: -100             # default for metrices and loss implemented by HyenaDNA
+d_output: 9                 # not needed by dataset directly but for other config entries
+batch_size: 32              # not needed by dataset directly but for other config entries
+mean_seq_len: 7474          # not needed by dataset directly but for other config entries
+num_sequences: 4783         # not needed by dataset directly but for other config entries  
+train_size: ${eval:${dataset.num_sequences} * ${div_up:${dataset.mean_seq_len}, ${dataset.max_length}}}

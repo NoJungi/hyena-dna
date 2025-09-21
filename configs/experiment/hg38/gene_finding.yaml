@@ -4,25 +4,29 @@ defaults:
   - override /scheduler: cosine_warmup_timm
 dataset:
   _name_: gene_finding
-  bed_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
-  fasta_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
-  label_file: /home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
-  max_length: 1024
-  d_output: 9
+  bed_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
+  fasta_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
+  label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
+  max_length: 1026            # max input length, sequences longer than this will be chunked# when loading pretrained models is required to be set the same as the pretrained model
   add_eos: False
-  batch_size: 32
-  train_size: 70000
+  last_chunk_overlap: False
+  pad_value: -100             # default for metrices and loss implemented by HyenaDNA
+  d_output: 9                 # not needed by dataset directly but for other config entries
+  batch_size: 32              # not needed by dataset directly but for other config entries
+  mean_seq_len: 7474          # not needed by dataset directly but for other config entries
+  num_sequences: 4783         # not needed by dataset directly but for other config entries  
+  train_size: ${eval:${dataset.num_sequences} * ${div_up:${dataset.mean_seq_len}, ${dataset.max_length}}}
 
 model:
   _name_: dna_embedding
   d_model: 128
-  n_layer: 3
+  n_layer: 4
   d_inner: ${eval:4 * ${.d_model}}
   vocab_size: 12
   resid_dropout: 0.0
   embed_dropout: 0.1
-  fused_mlp: False # figure out how to use fused MLP, maybe only with bf16 + a100
-  fused_dropout_add_ln: False # damit keine ERROR? weil nicht installiert...
+  fused_mlp: False            # figure out how to use fused MLP, maybe only with bf16 + a100
+  fused_dropout_add_ln: False # use True only when fused layers (from flash attn) is installed
   residual_in_fp32: True
   pad_vocab_size_multiple: 8
   layer:
@@ -30,25 +34,24 @@ model:
     emb_dim: 5
     filter_order: 64
     short_filter_order: 3
-    #order: 3 #nr. of convolutions per layer (n-1 conv)
-    l_max: 1026  # required to be set the same as the pretrained model if using, don't forget the +2!  ${eval:${dataset.max_length}+2}
-    modulate: True
+    order: 2                      #nr. of convolutions per layer (n-1 conv)
+    l_max: ${dataset.max_length}  # when loading pretrained models is required to be set the same as the pretrained model
     w: 10
     lr: ${optimizer.lr}
     wd: 0.0
     lr_pos_emb: 0.0
 
+decoder:              # decoder for downstream tasks, see src/tasks/decoders for more options
+  _name_: CNN_BEND
+
 task:
-  # 2 options for soft_cross_entropy (for mixup)
   loss:
-    # soft_cross_entropy for pytorch 1.10+, which takes in label_smoothing here
-    _name_: custom_cce_f1 #cross_entropy
-    # label_smoothing: 0.1
-  # pass in list of k's
-  # last_k_ppl: null
+    _name_: custom_cce_f1           
+    batch_size: ${dataset.batch_size}
+    pad_value: ${dataset.pad_value}
   metrics:
-    - accuracy
-    - mcc
+    - accuracy_ignore_index   # ignores padding index, see src/tasks/metrics for more options
+    - mcc                     # matthews correlation coefficient
 
 trainer:
   accelerator: gpu
@@ -62,24 +65,44 @@ trainer:
 
 scheduler:
   t_in_epochs: False
-  t_initial:  328200  #${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs}}
+  t_initial: ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs}}
   warmup_lr_init: 1e-6
-  warmup_t:  3282 # ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
+  warmup_t:  ${eval:${div_up:${dataset.train_size}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
   lr_min: ${eval:0.1 * ${optimizer.lr}}
 
 optimizer:
-  lr: 6e-5
+  lr: 6e-4
   weight_decay: 0.1
 
 train:
   gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
   seed: 22
   global_batch_size: ${dataset.batch_size}
-  remove_test_loader_in_eval: False  # True: no test set in this benchmark
-  pretrained_model_strict_load: False  # false allows encoder/decoder to be used if new model uses it
+  remove_test_loader_in_eval: False     # True: no test set in this benchmark
+  pretrained_model_strict_load: False   # false allows encoder/decoder to be used if new model uses it
   # for loading backbone and not head, requires both of these flags below
-  pretrained_model_path: null #/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/pretrained_weights/hyenadna-tiny-1k-seqlen/weights.ckpt
+  pretrained_model_path: null 
   pretrained_model_state_hook:
     _name_: load_backbone
-    freeze_backbone: False  # seems to work much better if false (ie finetune entire model)
+    freeze_backbone: False  # if false finetune entire model, if true only finetune decoder head
+
+wandb:                    # added herer to overwrite config.yaml entries
+  project: hyena_dna
+  group: ""
+  job_type: training
+  mode: online            # choices=['online', 'offline', 'disabled']
+  name: null              # if null, wandb assigns a random name
+  save_dir: "."
+  id: ${.name}            # pass correct id to resume experiment!
+  # Below options should not need to be specified
+  # entity: ""            # set to name of your wandb team or just remove it
+  # log_model: False
+  # prefix: ""
+  # job_type: "train"
+  # tags: []
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}_${now:%H-%M-%S-%f}
+
 
