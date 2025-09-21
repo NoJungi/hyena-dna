@@ -141,149 +141,7 @@ class SequenceDecoder(Decoder):
         # Ignore all length logic
         return self.output_transform(x)
 
-class GeneDecoder(nn.Module):
-    """2 linear layers that transform the ebeddings into class predictions for
-    each position of the sequence.
-    """
-
-    def __init__(
-        self, d_model, max_length, d_output=9, activation="ReLU"):
-
-        super().__init__()
-        self.d_model = d_model
-        self.seq_length = max_length
-        self.d_output = d_output
-        #layer_size = self.d_model*self.seq_length
-
-        #self.linear_first = nn.Linear(self.seq_length, 64)
-        #self.linear_second = nn.Linear(64, self.seq_length)
-
-        self.linear_first = nn.Linear(self.seq_length, self.seq_length)
-        self.linear_second = nn.Linear(d_model, self.d_model)
-        self.linear_last = nn.Linear(d_model, self.d_output)
-
-
-        #self.linear_last = nn.Linear(self.d_model, self.d_output)
-        if activation == "ReLU":
-            self.activation = nn.ReLU()
-        elif activation == "Tanh":
-            self.activation = nn.Tanh()
-
-
-    def forward(self, x):
-        """
-        x: (n_batch, l_seq, d_model)
-        Returns: (n_batch, l_output, d_output)
-        """
-
-        batch_size = x.shape[0]
-
-        x = x.view(batch_size, self.d_model, self.seq_length)
-        x = self.linear_first(x)
-        x = self.activation(x)
-
-        x = x.view(batch_size, self.seq_length, self.d_model)
-        x = self.linear_second(x)
-        x = self.activation(x)
-        x = self.linear_last(x)
-        x = self.activation(x)
-
-        return x
-
-    def step(self, x, state=None):
-        # Ignore all length logic
-        return self.forward(x)
-
-class ShortGeneDecoder(nn.Module):
-    """2 linear layers that transform the ebeddings into class predictions for
-    each position of the sequence.
-    """
-
-    def __init__(
-        self, d_model, d_output=9, activation="ReLU"):
-
-        super().__init__()
-        self.d_model = d_model
-        self.d_output = d_output
-        self.inner_size_1 = int(self.d_model/2)
-        self.inner_size_2 = int(self.inner_size_1/2)
-        self.inner_size_3 = int(self.inner_size_2/2)
-
-
-        self.linear_first = nn.Linear(self.d_model, self.inner_size_1)
-        self.linear_second = nn.Linear(self.inner_size_1, self.inner_size_2)
-        self.linear_third = nn.Linear(self.inner_size_2, self.inner_size_3)
-        self.linear_last = nn.Linear(self.inner_size_3, self.d_output)
-
-
-        #self.linear_last = nn.Linear(self.d_model, self.d_output)
-        if activation == "ReLU":
-            self.activation = nn.ReLU()
-        elif activation == "Tanh":
-            self.activation = nn.Tanh()
-
-
-    def forward(self, x):
-        """
-        x: (n_batch, l_seq, d_model)
-        Returns: (n_batch, l_output, d_output)
-        """
-
-        x = self.linear_first(x)
-        x = self.activation(x)
-        x = self.linear_second(x)
-        x = self.activation(x)
-        x = self.linear_third(x)
-        x = self.activation(x)
-        x = self.linear_last(x)
-        x = self.activation(x)
-
-        return x
-
-    def step(self, x, state=None):
-        # Ignore all length logic
-        return self.forward(x)
-
-class LinearGeneDecoder(nn.Module):
-    """3 linear layers that transform the ebeddings into class predictions for
-    each position of the sequence.
-    """
-
-    def __init__(
-        self, d_model, d_output=9, activation="ReLU"):
-
-        super().__init__()
-        self.d_model = d_model
-        self.d_output = d_output
-        self.inner_size_1 = int(self.d_model/2)
-        self.inner_size_2 = int(self.inner_size_1/2)
-
-        if activation == "ReLU":
-            self.activation = nn.ReLU()
-        elif activation == "Tanh":
-            self.activation = nn.Tanh()
-
-        self.linear_layers = nn.Sequential(
-            nn.Linear(self.d_model, self.inner_size_1),
-            self.activation,
-            nn.Linear(self.inner_size_1, self.inner_size_2),
-            self.activation,
-            nn.Linear(self.inner_size_2, self.d_output),
-            self.activation
-        )
-    def forward(self, x):
-        """
-        x: (n_batch, l_seq, d_model)
-        Returns: (n_batch, l_output, d_output)
-        """
-        x = self.linear_layers(x)
-        return x
-
-    def step(self, x, state=None):
-        # Ignore all length logic
-        return self.forward(x)
-
-class SimpleLinearGeneDecoder(nn.Module):
+class LinearSigmoidDecoder(nn.Module):
     """1 simple linear layer that transform the ebeddings into class predictions for
     each position of the sequence.
     """
@@ -297,7 +155,7 @@ class SimpleLinearGeneDecoder(nn.Module):
 
         self.activation = nn.Sigmoid
 
-        self.linear_layer = nn.Sequential(
+        self.dense_layer_activation = nn.Sequential(
             nn.Linear(self.d_model, self.d_output),
             self.activation,
         )
@@ -307,59 +165,45 @@ class SimpleLinearGeneDecoder(nn.Module):
         x: (n_batch, l_seq, d_model)
         Returns: (n_batch, l_output, d_output)
         """
-        x = self.linear_layer(x)
+        x = self.dense_layer_activation(x)
         return x
 
     def step(self, x, state=None):
         # Ignore all length logic
         return self.forward(x)
 
-class ConvGeneDecoder(nn.Module):
-    """2d convolutional layers that transform the ebeddings into class predictions for
-    each position of the sequence.
+    
+class TransposeLayer(nn.Module):
     """
-
+    From BEND. Needed for CNN_BEND decoder   
+    A layer that transposes the input.
+    """
     def __init__(
-        self, d_model, d_output=9):
-
+        self,
+    ):
         super().__init__()
-        self.d_model = d_model
-        self.d_output = d_output
-        kernel_size = int(self.d_model/2)
-
-        self.conv2d_layer = nn.Conv2d(in_channels=1,
-                                      out_channels=1,
-                                      kernel_size=kernel_size,
-                                      padding='same'
-        )
-        self.linear_layer = nn.Linear(self.d_model, self.d_output)
-        self.activation = nn.ReLU()
 
     def forward(self, x):
         """
-        x: (n_batch, l_seq, d_model)
-        Returns: (n_batch, l_output, d_output)
+        Transpose the input.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        torch.Tensor
+            Transposed tensor.
         """
-
-        x = x.unsqueeze(dim=1)
-        x = self.conv2d_layer(x)
-        x = x.squeeze(dim=1)
-        x = self.activation(x)
-
-        x = self.linear_layer(x)
-        x = self.activation(x)
-
+        x = torch.transpose(x, 1, 2)
         return x
 
-    def step(self, x, state=None):
-        # Ignore all length logic
-        return self.forward(x)
-
-
-class CNN_BEND(nn.Module):
+class CNN_BEND_Decoder(nn.Module):
     """
-    Adapted form BEND.
-    A two-layer CNN with step size 1, ReLU activation, and a linear layer.
+    Adapted from BEND. 
+    A two-layer CNN with step size 1, GeLU activation, and a linear layer.
     """
     def __init__(self, d_model, 
                  d_output=9, 
@@ -379,40 +223,38 @@ class CNN_BEND(nn.Module):
         kernel_size: int
             The kernel size of the convolutional layers.
         """
-        super(CNN_BEND, self).__init__()
-        self.output_size = d_output
+        super().__init__()
+        self.d_output = d_output
+        self.d_model = d_model
+        self.hidden_size = hidden_size
+        self.kernel_size = kernel_size
 
         self.conv1 = nn.Sequential(TransposeLayer(), 
-                                   nn.Conv1d(input_size, hidden_size, kernel_size, stride = 1, padding = 1), 
+                                   nn.Conv1d(self.d_model, self.hidden_size, self.kernel_size, stride = 1, padding = 1), 
                                    TransposeLayer(),
                                    nn.GELU())
         
         self.conv2 = nn.Sequential(TransposeLayer(), 
-                                   nn.Conv1d(hidden_size, hidden_size, kernel_size, stride = 1, padding = 1), 
+                                   nn.Conv1d(self.hidden_size, self.hidden_size, self.kernel_size, stride = 1, padding = 1), 
                                    TransposeLayer(), 
                                    nn.GELU(),
                                   )
 
-        self.linear = nn.Sequential(nn.Linear(hidden_size, output_size))
-        #self.softmax =  nn.Softmax(dim = -1)
-        #self.softplus = nn.Softplus()
-        #self.sigmoid = nn.Sigmoid()
+        self.linear = nn.Sequential(nn.Linear(self.hidden_size, self.d_output))
+        # no activation at the end like in BEND 
         
-    def forward(self, x, activation = 'none'):
+    def forward(self, x):
         """
         Forward pass of the CNN.
 
         Parameters
         ----------
         x: torch.Tensor
-            Input tensor. Should have shape (batch_size, length, embedding_size).
-        activation: str
-            The activation function to use. Can be 'softmax', 'softplus', 'sigmoid', or 'none'.
+            Input tensor. Should have shape (batch_size, length, d_model).
         Returns
         -------
         torch.Tensor
-            Output tensor. Has shape (batch_size, output_length, output_size).
-            output_length is determined by the input length, the upsampling factor, and the output downsampling window.
+            Output tensor. Has shape (batch_size, length, d_output).
 
         """
         # 1st conv layer
@@ -421,13 +263,8 @@ class CNN_BEND(nn.Module):
         x = self.conv2(x)
         # linear layer 
         x = self.linear(x)
-        #if activation =='softmax': 
-        #    x = self.softmax(x)
-        #elif activation == 'softplus':
-        #    x = self.softplus(x)
-        #elif activation == 'sigmoid':
-        #    x = self.sigmoid(x)
         return x
+    
     def step(self, x, state=None):
         # Ignore all length logic
         return self.forward(x)
@@ -575,48 +412,36 @@ registry = {
     "id": nn.Identity,
     "linear": nn.Linear,
     "sequence": SequenceDecoder,
-    "gene": GeneDecoder,
-    "short_gene": ShortGeneDecoder,
-    "conv_gene": ConvGeneDecoder,
-    "simple_dense": SimpleLinearGeneDecoder,
-    "CNN_BEND": CNN_BEND,
-    "linear_gene": LinearGeneDecoder,
     "nd": NDDecoder,
     "retrieval": RetrievalDecoder,
     "state": StateDecoder,
     "pack": PackedDecoder,
     "token": TokenDecoder,
+    "linear_sigmoid": LinearSigmoidDecoder,
+    "CNN_BEND": CNN_BEND_Decoder,
 }
 model_attrs = {
-    "linear": ["d_output"],
+    "linear": ["d_model"],
     "sequence": ["d_output"],
-    "gene": ["d_model"],
-    "short_gene": ["d_model"],
-    "conv_gene": ["d_model"],
-    "simple_dense": ["d_model"],
-    "CNN_BEND": ["d_model"],
-    "linear_gene": ["d_model"],
     "nd": ["d_output"],
     "retrieval": ["d_output"],
     "state": ["d_state", "state_to_tensor"],
     "forecast": ["d_output"],
     "token": ["d_output"],
+    "linear_sigmoid": ["d_model"],
+    "CNN_BEND": ["d_model"],
 }
 
 dataset_attrs = {
     "linear": ["d_output"],
     "sequence": ["d_output", "l_output"],
-    "gene":["max_length", "d_output"],
-    "short_gene":["d_output"],
-    "conv_gene": ["d_output"],
-    "simple_dense": ["d_output"],
-    "CNN_BEND": ["d_output"],
-    "linear_gene": ["d_output"],
     "nd": ["d_output"],
     "retrieval": ["d_output"],
     "state": ["d_output"],
     "forecast": ["d_output", "l_output"],
     "token": ["d_output"],
+    "linear_sigmoid": ["d_output"],
+    "CNN_BEND": ["d_output"],
 }
 
 
