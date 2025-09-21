@@ -205,7 +205,6 @@ def custom_cce_f1(y_pred, y_true,
                   from_logits=True, # HyenaDNA outputs unnormalized logits
                   pad_value=-100):
     eps = 1e-7  # instead of epsilon from tensorflow.keras.backend
-    #batch_size = y_pred.shape[0]
 
     if use_cce:
         # Compute the categorical cross-entropy loss (in pytorch from unnormalized logits)
@@ -215,16 +214,18 @@ def custom_cce_f1(y_pred, y_true,
         cce_loss = 0
 
     if from_logits:
-            y_pred = F.softmax(y_pred, dim=-1)
+        y_pred = F.softmax(y_pred, dim=-1)
 
     # compute mask for to ignore padding:
-    pad_mask = (y_true != pad_value).unsqueeze(-1) # shape [batch L,1]
+    pad_mask = (y_true != pad_value).unsqueeze(-1) # shape [batch, L,1]
+
+    # replace pad_values in labels with 0 for one-hot-encoding. Padding is later ignored with mask
     y_true_one_hot = torch.where(y_true == pad_value,
-                                 torch.zeros_like(y_true),  # replace -1 by 0, otherwise one-hot encoding has additional padding class
+                                 torch.zeros_like(y_true),  
                                  y_true)
     
     # one-hot encode y_true and apply padding mask to labels and predictions
-    y_true_one_hot = F.one_hot(y_true_one_hot, num_classes=9) # for BEND 9 classes, Hyena onl has label indices, no one-hot encodined labelsy_true_one_hot = y_true_one_hot * mask
+    y_true_one_hot = F.one_hot(y_true_one_hot, num_classes=9) # for BEND 9 classes, Hyena onl has label indices, no one-hot encoded labels
     y_true_one_hot = y_true_one_hot * pad_mask # apply padding mask so that padding has no class in the one-hot encoding
     y_pred = y_pred * pad_mask                 # apply padding mask to predictions
 

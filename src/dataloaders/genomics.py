@@ -731,10 +731,11 @@ class Bend_gene_finding(HG38):
 
     """Dataloader for Training on Bend gene-finding task."""
 
-    def __init__(self, bed_file, fasta_file, label_file, max_length=1024, d_output=9, overlap=True,
-                 add_eos=True, val_only=False, batch_size=32, batch_size_eval=None, num_workers=1,
-                 shuffle=True, pin_memory=False, drop_last=False, fault_tolerant=False, ddp=False,
-                 fast_forward_epochs=None, fast_forward_batches=None, replace_N_token=False, tokenizer=None,
+    def __init__(self, bed_file, fasta_file, label_file, max_length=1024, d_output=9,
+                 add_eos=False, last_chunk_overlap=False, pad_value=-100, val_only=False, 
+                 batch_size=64, batch_size_eval=None, num_workers=1, shuffle=True, 
+                 pin_memory=False, drop_last=False, fault_tolerant=False, ddp=False, 
+                 fast_forward_epochs=None, fast_forward_batches=None,
                  *args, **kwargs):
   
         self.fasta_file = fasta_file
@@ -742,23 +743,18 @@ class Bend_gene_finding(HG38):
         self.label_file = label_file
         self.max_length = max_length
         self.add_eos = add_eos
+        if self.add_eos:
+            self.max_length -= 2  # account for special tokens if adding eos
+        self.d_output = d_output
+        self.last_chunk_overlap = last_chunk_overlap
+        self.pad_value = pad_value
+        self.val_only = val_only
         self.batch_size = batch_size
-        self.batch_size_eval = batch_size
+        self.batch_size_eval = batch_size_eval if batch_size_eval is not None else self.batch_size
         self.num_workers = num_workers
         self.shuffle = shuffle
         self.pin_memory = pin_memory
         self.drop_last = drop_last
-        self.replace_N_token = replace_N_token
-        self.d_output = d_output
-        self.overlap = overlap
-        self.val_only = val_only
-        self.tokenizer=tokenizer
-
-        self.seq_length = self.max_length
-        if self.add_eos == False:
-            self.seq_length += 2
-        
-
         if fault_tolerant:
             assert self.shuffle
         self.fault_tolerant = fault_tolerant
@@ -775,17 +771,15 @@ class Bend_gene_finding(HG38):
 
     def setup(self, stage=None):
 
-        # Create tokenizer
-        self.tokenizer = CharacterTokenizer(
-            characters=['A', 'C', 'G', 'T', 'N'],
-            model_max_length= self.max_length +  2,  # add 2 since default adds eos/eos tokens, crop later
-            add_special_tokens=False,
-        )
-
        # delete old datasets to free memory
         if hasattr(self, 'dataset_train'):
             self.dataset_train.fasta.seqs.close()
             del self.dataset_train.fasta.seqs
+
+        # delete old datasets to free memory
+        if hasattr(self, 'dataset_val'):
+            self.dataset_val.fasta.seqs.close()
+            del self.dataset_val.fasta.seqs
 
         # delete old datasets to free memory
         if hasattr(self, 'dataset_test'):
@@ -795,16 +789,15 @@ class Bend_gene_finding(HG38):
         # Create all splits: torch datasets
         self.dataset_train, self.dataset_val, self.dataset_test = [
             BendDataset(split=split,
-                        overlap=overlap,
                         bed_file=self.bed_file,
                         fasta_file=self.fasta_file,
                         label_file=self.label_file,
                         max_length=self.max_length,
-                        tokenizer=self.tokenizer,  # pass the tokenize wrapper
                         add_eos=self.add_eos,
-                        replace_N_token=self.replace_N_token,
-                        batch_size=self.batch_size)
-            for split, overlap in zip(['train', 'valid', 'test'], [self.overlap, False, False])
+                        last_chunk_overlap=self.last_chunk_overlap,
+                        pad_value=self.pad_value
+                        )
+            for split in ['train', 'valid', 'test']
         ]
     
 if __name__ == '__main__':

@@ -1,13 +1,11 @@
 from pathlib import Path
 from pyfaidx import Fasta
-import polars as pl
 import pandas as pd
 import torch
-from random import randrange, random
 import numpy as np
 import h5py
 
-from hg38_char_tokenizer import CharacterTokenizer
+from src.dataloaders.datasets.hg38_char_tokenizer import CharacterTokenizer
 
 
 """
@@ -64,7 +62,7 @@ class BendDataset(torch.utils.data.Dataset):
         the last chunk is padded to max_length resulting in shorter context for the last chunk.
         
         Args:
-            split:                  'train', 'val', 'test'
+            split:                  'train', 'valid', 'test'
             bed_file:               path to .bed file with columns: chromosome, start, end, strand, length, split
             fasta_file:             path to .fasta file
             label_file:             path to .hdf5 file containing labels for each nucleotide
@@ -109,7 +107,7 @@ class BendDataset(torch.utils.data.Dataset):
             label_index = row[0]
             row = row[1]
 
-            if row['length'] <= self.max_length: # no chunks needed, only padding is added later
+            if row['length'] <= self.max_length: # no chunks needed, only padding is added later in __get_item__()
                 self.df.loc[len(self.df)] = [row['chromosome'], row['start'], row['end'], row['strand'], row['length'], label_index, 0]
             else: # cut into chunks of max_length
                 nr_full_chunks = int(row['length'] / self.max_length)
@@ -123,10 +121,11 @@ class BendDataset(torch.utils.data.Dataset):
                     self.df.loc[len(self.df)] = [row['chromosome'], seq_start, seq_end, row['strand'], self.max_length, label_index, label_start]
                     seq_start += self.max_length
                     label_start += self.max_length
+
                 if last_chunk_length > 0:
-                    if self.last_chunk_overlap: # set the starting index of nucleotides in the last chunk to be max_length before the end
+                    if self.last_chunk_overlap: # set the starting index of sequence so that it contains the last max_length nucleotides
                         seq_start = row['end'] - self.max_length
-                        if split == 'train': # no padding for training set, use overlap 2 times
+                        if split == 'train': # no padding for training set, use overlap 2 in loss both times
                             label_start = row['length'] - self.max_length
                     self.df.loc[len(self.df)] = [row['chromosome'], seq_start, row['end'], row['strand'], last_chunk_length, label_index, label_start]
 
@@ -138,9 +137,6 @@ class BendDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.df)
-
-    def replace_value(self, x, old_value, new_value):
-        return torch.where(x == old_value, new_value, x)
 
     def __getitem__(self, idx):
         """Returns a sequence of specified len"""
@@ -160,8 +156,8 @@ class BendDataset(torch.utils.data.Dataset):
             max_length=self.max_length, #default: add padding on left
             truncation=True,
         )
-        seq = seq["input_ids"]  # get input_ids
-        seq = torch.LongTensor(seq) # convert to tensor
+        seq = seq["input_ids"]          # get input_ids
+        seq = torch.LongTensor(seq)     # convert to tensor
 
         # get Target: classes for each nucleotide (and add padding labels for shorter sequences)
         label = self.labels[label_index]
@@ -177,26 +173,39 @@ class BendDataset(torch.utils.data.Dataset):
 
 if __name__ == '__main__':
 
-    fasta_file = '/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa'
-    bed_file = '/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed'
-    label_file = '/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5'
+    import os
+    from pathlib import Path
+
+    base_dir = Path(__file__).parent
+    data_dir = os.path.join(base_dir, "../../../data")
+    fasta_file = os.path.join(data_dir, 'gene_finding/GRCh38.primary_assembly.genome.fa')
+    bed_file = os.path.join(data_dir, 'gene_finding/gene_finding.bed')
+    label_file = os.path.join(data_dir, 'gene_finding/gene_finding.hdf5')
 
     max_length = 1026
 
-    dataset = BendDataset(split='train',
+    dataset_train = BendDataset(split='train',
         bed_file=bed_file,
         fasta_file=fasta_file,
         label_file=label_file,
         max_length=max_length,
         add_eos=False)
 
-    index= 36
-    for i in range(index, index+1):
-        seq, label = dataset.__getitem__(i)
-    print("LENGTH DF:", dataset.__len__())
-    step_size=100
-    for i in range(0,max_length, step_size):
-        print(label[i:i+step_size])
+    dataset_val = BendDataset(split='valid',
+        bed_file=bed_file,
+        fasta_file=fasta_file,
+        label_file=label_file,
+        max_length=max_length,
+        add_eos=False)
 
+    dataset_test = BendDataset(split='test',
+        bed_file=bed_file,
+        fasta_file=fasta_file,
+        label_file=label_file,
+        max_length=max_length,
+        add_eos=False)
+    print(dataset_train.__len__())
+    print(dataset_val.__len__())
+    print(dataset_test.__len__())
 
 
