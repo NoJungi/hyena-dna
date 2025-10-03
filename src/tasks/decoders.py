@@ -141,25 +141,6 @@ class SequenceDecoder(Decoder):
         # Ignore all length logic
         return self.output_transform(x)
 
-class LinearSigmoidDecoder(nn.Module):
-    """1 simple linear layer that transform the ebeddings into class predictions for
-    each position of the sequence.
-    """
-
-    def __init__(
-        self, d_model, d_output=9):
-
-        super().__init__()
-        self.d_model = d_model
-        self.d_output = d_output
-
-        self.activation = nn.Sigmoid
-
-        self.dense_layer_activation = nn.Sequential(
-            nn.Linear(self.d_model, self.d_output),
-            self.activation,
-        )
-
     def forward(self, x):
         """
         x: (n_batch, l_seq, d_model)
@@ -417,7 +398,6 @@ registry = {
     "state": StateDecoder,
     "pack": PackedDecoder,
     "token": TokenDecoder,
-    "linear_sigmoid": LinearSigmoidDecoder,
     "CNN_BEND": CNN_BEND_Decoder,
 }
 model_attrs = {
@@ -428,7 +408,6 @@ model_attrs = {
     "state": ["d_state", "state_to_tensor"],
     "forecast": ["d_output"],
     "token": ["d_output"],
-    "linear_sigmoid": ["d_model"],
     "CNN_BEND": ["d_model"],
 }
 
@@ -440,7 +419,6 @@ dataset_attrs = {
     "state": ["d_output"],
     "forecast": ["d_output", "l_output"],
     "token": ["d_output"],
-    "linear_sigmoid": ["d_output"],
     "CNN_BEND": ["d_output"],
 }
 
