@@ -45,9 +45,8 @@ decoder:              # decoder for downstream tasks, see src/tasks/decoders for
 
 task:
   loss:
-    _name_: custom_cce_f1           
-    batch_size: ${dataset.batch_size}
-    pad_value: ${dataset.pad_value}
+    _name_: cross_entropy
+    ignore_index: ${dataset.pad_value}
   metrics:
     - accuracy_ignore_index   # ignores padding index, see src/tasks/metrics for more options
     - mcc                     # matthews correlation coefficient
