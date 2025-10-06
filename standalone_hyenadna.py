@@ -280,8 +280,8 @@ class HyenaOperator(nn.Module):
         *x, v = uc.split(self.d_model, dim=1)
 
         k = self.filter_fn.filter(l_filter)[0]
-        k = rearrange(k, 'l (o d) -> o d l', o=self.order - 1)
-        bias = rearrange(self.filter_fn.bias, '(o d) -> o d', o=self.order - 1)
+        k = rearrange(k, 'l (d o) -> o d l', o=self.order - 1)     # (d o) not (o d) otherwise weights are used in other order thatn trained with
+        bias = rearrange(self.filter_fn.bias, '(d o) -> o d', o=self.order - 1)
 
         for o, x_i in enumerate(reversed(x[1:])):
             v = self.dropout(v * x_i)
