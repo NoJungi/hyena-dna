@@ -209,7 +209,7 @@ def custom_cce_f1(y_pred, y_true,
     if use_cce:
         # Compute the categorical cross-entropy loss (in pytorch from unnormalized logits)
         y_pred_cce = einops.rearrange(y_pred, 'b l c -> b c l') # right order to apply F.cross_entropy 
-        cce_loss = F.cross_entropy(y_pred_cce, y_true, ignore_index=pad_value) #deafault: mean over sequence length and batch size
+        cce_loss = F.cross_entropy(y_pred_cce, y_true, ignore_index=pad_value) #default: mean over sequence length and batch size
     else:
         cce_loss = 0
 
