@@ -7,7 +7,6 @@ import h5py
 
 from src.dataloaders.datasets.hg38_char_tokenizer import CharacterTokenizer
 
-
 """
 
 Dataset for sampling intervals from human refernce genome.
@@ -49,17 +48,15 @@ class BendDataset(torch.utils.data.Dataset):
         label_file,
         max_length,
         add_eos=False,
-        last_chunk_overlap=False,
         pad_value = -100
     ):
         """
         Initialize dataset used by BEND for gene finding task. All sequences longer than max_length are 
         split into chunks of max_length. For sequences that are not a multiple of max_length, the last 
-        chunk is either overlapping with the previous chunk or padded to max_length. When the last chunk 
-        is overlapping (last_chunk_overlap=True) with previous chunk the overlap is not accounted for in 
-        the loss of validation and test set, since these positions are already predicted in the previous 
-        chunk. Overlapping allows to have full context length for each chunk. When last_chunk_overlap=False, 
-        the last chunk is padded to max_length resulting in shorter context for the last chunk.
+        chunk is overlapping with the previous chunk. The overlap is not accounted for in the loss of 
+        validation and test set, since these positions are already predicted in the previous chunk. 
+        Overlapping allows to have full context length for each chunk. When split='train', the overlap 
+        is used two times in one epoch to have full context length for each chunk and no padding.
         
         Args:
             split:                  'train', 'valid', 'test'
@@ -68,7 +65,6 @@ class BendDataset(torch.utils.data.Dataset):
             label_file:             path to .hdf5 file containing labels for each nucleotide
             max_length:             maximum length of sequences
             add_eos:                whether to add end-of-sequence and start-of-sequence token
-            last_chunk_overlap:     whether to overlap last chunk or just add padding
             pad_value:          labels that marked as padding can be ignored for loss and other metrices
         """
 
@@ -76,7 +72,6 @@ class BendDataset(torch.utils.data.Dataset):
         self.add_eos = add_eos
         if self.add_eos:
             self.max_length -= 2 # account for adding eos and sos
-        self.last_chunk_overlap = last_chunk_overlap
         self.pad_value = pad_value
 
         self.tokenizer = CharacterTokenizer(
@@ -122,11 +117,11 @@ class BendDataset(torch.utils.data.Dataset):
                     seq_start += self.max_length
                     label_start += self.max_length
 
-                if last_chunk_length > 0:
-                    if self.last_chunk_overlap: # set the starting index of sequence so that it contains the last max_length nucleotides
-                        seq_start = row['end'] - self.max_length
-                        if split == 'train': # no padding for training set, use overlap 2 in loss both times
-                            label_start = row['length'] - self.max_length
+                if last_chunk_length > 0:  # set the starting index of sequence so that it contains the last max_length nucleotides
+                    seq_start = row['end'] - self.max_length
+                    if split == 'train': # use overlap in loss both times, for valid and test; mask the overlap in loss only once
+                        label_start = row['length'] - self.max_length
+                        last_chunk_length = self.max_length
                     self.df.loc[len(self.df)] = [row['chromosome'], seq_start, row['end'], row['strand'], last_chunk_length, label_index, label_start]
 
         self.fasta = FastaInterval(fasta_file = fasta_file)
@@ -149,7 +144,7 @@ class BendDataset(torch.utils.data.Dataset):
         # get sequence
         seq = self.fasta(chr_name, seq_start, seq_end)
 
-        # tokenize sequence (and add padding if sequence is shorter than max_length)
+        # tokenize sequence
         seq = self.tokenizer(seq,
             add_special_tokens=True if self.add_eos else False,  # this is what controls adding eos not params in __init__
             padding="max_length",
@@ -163,7 +158,7 @@ class BendDataset(torch.utils.data.Dataset):
         label = self.labels[label_index]
         label = label[label_start:(label_start + length)]
 
-        # add padding labels on the left if length < max_length
+        # add masking labels on the left if length < max_length to ignore the overlap of the last chunk with the previous chunk (only case for split='test' or 'valid')
         if length < self.max_length:
             pad_length = self.max_length - length
             label = np.pad(label, (pad_length, 0), 'constant', constant_values=self.pad_value)  # default: -100 is the ignore index for CrossEntropyLoss for HyenaDNA

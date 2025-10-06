@@ -732,10 +732,10 @@ class Bend_gene_finding(HG38):
     """Dataloader for Training on Bend gene-finding task."""
 
     def __init__(self, bed_file, fasta_file, label_file, max_length=1024, d_output=9,
-                 add_eos=False, last_chunk_overlap=False, pad_value=-100, val_only=False, 
-                 batch_size=64, batch_size_eval=None, num_workers=1, shuffle=True, 
-                 pin_memory=False, drop_last=False, fault_tolerant=False, ddp=False, 
-                 fast_forward_epochs=None, fast_forward_batches=None,
+                 add_eos=False, pad_value=-100, val_only=False, batch_size=64, 
+                 batch_size_eval=None, num_workers=1, shuffle=True, pin_memory=False, 
+                 drop_last=False, fault_tolerant=False, ddp=False, fast_forward_epochs=None, 
+                 fast_forward_batches=None,
                  *args, **kwargs):
   
         self.fasta_file = fasta_file
@@ -746,7 +746,6 @@ class Bend_gene_finding(HG38):
         if self.add_eos:
             self.max_length -= 2  # account for special tokens if adding eos
         self.d_output = d_output
-        self.last_chunk_overlap = last_chunk_overlap
         self.pad_value = pad_value
         self.val_only = val_only
         self.batch_size = batch_size
@@ -794,7 +793,6 @@ class Bend_gene_finding(HG38):
                         label_file=self.label_file,
                         max_length=self.max_length,
                         add_eos=self.add_eos,
-                        last_chunk_overlap=self.last_chunk_overlap,
                         pad_value=self.pad_value
                         )
             for split in ['train', 'valid', 'test']

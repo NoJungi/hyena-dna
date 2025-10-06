@@ -5,7 +5,6 @@ fasta_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.
 label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
 max_length: 1026            # max input length, sequences longer than this will be chunked# when loading pretrained models is required to be set the same as the pretrained model
 add_eos: False
-last_chunk_overlap: False
 pad_value: -100             # default for metrices and loss implemented by HyenaDNA
 d_output: 9                 # not needed by dataset directly but for other config entries
 batch_size: 32              # not needed by dataset directly but for other config entries
