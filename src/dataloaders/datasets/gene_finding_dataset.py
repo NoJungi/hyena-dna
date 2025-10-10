@@ -140,7 +140,6 @@ class BendDataset(torch.utils.data.Dataset):
         row = self.df.iloc[idx]  
         # row = (chr, seq_start, seq_end, strand, length, label_index, label_start)
         chr_name, seq_start, seq_end, strand, length, label_index, label_start = (row[0], row[1], row[2], row[3], row[4], row[5], row[6])
-        print(strand)
         # get sequence
         seq = self.fasta(chr_name, seq_start, seq_end)
 
@@ -165,42 +164,3 @@ class BendDataset(torch.utils.data.Dataset):
         label = torch.LongTensor(label)
 
         return seq, label
-
-if __name__ == '__main__':
-
-    import os
-    from pathlib import Path
-
-    base_dir = Path(__file__).parent
-    data_dir = os.path.join(base_dir, "../../../data")
-    fasta_file = os.path.join(data_dir, 'gene_finding/GRCh38.primary_assembly.genome.fa')
-    bed_file = os.path.join(data_dir, 'gene_finding/gene_finding.bed')
-    label_file = os.path.join(data_dir, 'gene_finding/gene_finding.hdf5')
-
-    max_length = 1026
-
-    dataset_train = BendDataset(split='train',
-        bed_file=bed_file,
-        fasta_file=fasta_file,
-        label_file=label_file,
-        max_length=max_length,
-        add_eos=False)
-
-    dataset_val = BendDataset(split='valid',
-        bed_file=bed_file,
-        fasta_file=fasta_file,
-        label_file=label_file,
-        max_length=max_length,
-        add_eos=False)
-
-    dataset_test = BendDataset(split='test',
-        bed_file=bed_file,
-        fasta_file=fasta_file,
-        label_file=label_file,
-        max_length=max_length,
-        add_eos=False)
-    print(dataset_train.__len__())
-    print(dataset_val.__len__())
-    print(dataset_test.__len__())
-
-

@@ -6,11 +6,8 @@ from functools import partial
 import torchmetrics.functional as tm_f
 import torch.distributions as dist
 from sklearn.metrics import f1_score, roc_auc_score, matthews_corrcoef
-from torchmetrics import Metric
+from torchmetrics import Metric, MatthewsCorrCoef
 from torchmetrics.classification import MulticlassRecall, MulticlassPrecision
-
-from torchmetrics import MatthewsCorrCoef
-
 import einops
 
 class CorrectAggregatedMetric(Metric):

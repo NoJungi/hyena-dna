@@ -5,9 +5,6 @@ from typing import Any, List, Union
 from torch.utils.data.dataloader import DataLoader, Dataset
 from transformers import AutoTokenizer
 from datasets import Dataset
-import sys
-
-sys.path.append("/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna")
 
 from src.dataloaders.base import SequenceDataset, default_data_path
 from src.dataloaders.fault_tolerant_sampler import RandomFaultTolerantSampler
@@ -21,7 +18,6 @@ from src.dataloaders.datasets.chromatin_profile_dataset import ChromatinProfileD
 from src.dataloaders.datasets.species_dataset import SpeciesDataset
 from src.dataloaders.datasets.icl_genomics_dataset import ICLGenomicsDataset
 from src.dataloaders.datasets.hg38_fixed_dataset import HG38FixedDataset
-
 from src.dataloaders.datasets.gene_finding_dataset import BendDataset
 
 
@@ -797,16 +793,3 @@ class Bend_gene_finding(HG38):
                         )
             for split in ['train', 'valid', 'test']
         ]
-    
-if __name__ == '__main__':
-    """Quick test using dataloader. Can't call from here though."""
-
-    loader = Bend_gene_finding(
-        bed_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed',
-        fasta_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCH38.pyrimary_assembly.genome.fa',
-        label_file='/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5'
-    )
-    ds = loader.train_dataloader()
-    it = iter(ds)
-    elem = next(it)
-    print(len(elem))

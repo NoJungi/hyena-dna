@@ -594,6 +594,11 @@ def load_backbone(model, state_dict, freeze_backbone=False, ignore_head=True):
 
         loaded_params = state_dict.get(key, None)
         # make sure key is in the loaded params first, if not, then print it out
+
+        if loaded_params is None:
+            key = key.replace("mixer.", "mixer.layer.")  # fix old naming issue
+            key = key.replace("mlp.", "mlp.layer.")      # fix old naming issue
+            loaded_params = state_dict.get(key, None)
     
         if loaded_params is None:
             # This should never happen, it should be there!

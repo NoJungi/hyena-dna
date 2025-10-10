@@ -1,9 +1,6 @@
 from functools import partial
 import torch
 import torch.nn as nn
-import sys
-
-sys.path.append("/home/s-nojung/jupyterhub/Masterarbeit/Code/hyena-dna/flash-attention")
 
 from flash_attn.utils.generation import GenerationMixin
 from flash_attn.utils.distributed import sync_shared_params
