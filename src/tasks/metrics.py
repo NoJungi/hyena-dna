@@ -81,6 +81,12 @@ class RecallPerClass(CorrectAggregatedMetric):
 
 
 def mcc(logits, y, pad_value=-100):
+    '''
+    Calculate Matthews correlation coefficient (MCC) for multi-class classification.
+    logits: (batch_size, seq_len, num_classes)
+    y: (batch_size, seq_len)
+    pad_value: int, value to ignore in y (e.g., -100 for padding)
+    '''
     logits = logits.view(-1, logits.shape[-1])
     y = y.view(-1)
     y_pred = torch.argmax(logits, dim=-1) # get predicted class indices for MCC
@@ -201,6 +207,18 @@ def custom_cce_f1(y_pred, y_true,
                   use_cce=True,
                   from_logits=True, # HyenaDNA outputs unnormalized logits
                   pad_value=-100):
+    '''
+    Adapted CCE-F1-loss introduced by Gabriel et al. "Tiberius: end-to-end deep learning with an HMM for gene prediction", 2024.
+    This loss is specifically designed for the BEND gene-finding task with 9 classes.
+    
+    logits: (batch_size, seq_len, num_classes)
+    y: (batch_size, seq_len)
+    batch_size: int, global batch size
+    f1_factor: float, factor to weight the f1 loss
+    use_cce: bool, whether to use categorical cross-entropy loss
+    from_logits: bool, whether y_pred are unnormalized logits
+    pad_value: int, value to ignore in y (e.g., -100 for padding)
+    '''
     eps = 1e-7  # instead of epsilon from tensorflow.keras.backend
 
     if use_cce:
@@ -269,6 +287,13 @@ def accuracy(logits, y):
 
 
 def accuracy_ignore_index(logits, y, ignore_index=-100):
+    '''
+    Compute the accuracy while ignoring a specific index in the target tensor.
+
+    logits: (batch_size, seq_len, num_classes)
+    y: (batch_size, seq_len)
+    ignore_index: int, value to ignore in y (e.g., -100 for padding)
+    '''
     logits = logits.view(-1, logits.shape[-1])
     num_classes = logits.shape[-1]
     preds = torch.argmax(logits, dim=-1)
