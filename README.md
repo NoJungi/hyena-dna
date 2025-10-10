@@ -1,47 +1,13 @@
 # Attention
 
-This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch ["add_gene_prediction"](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "BEND: BENCHMARKING DNA LANGUAGE MODELS  ON BIOLOGICALLY MEANINGFUL TASKS", 2024, GitHub: [BEND](https://github.com/frederikkemarin/BEND). 
+This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "BEND: BENCHMARKING DNA LANGUAGE MODELS  ON BIOLOGICALLY MEANINGFUL TASKS", 2024, GitHub: [BEND](https://github.com/frederikkemarin/BEND). 
 
-The follwoing files were added:
-- [configs/dataset/BEND_gene_finding.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/dataset/BEND_gene_finding.yaml)
-- [configs/pipeline/BEND_gene_finding.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/pipeline/BEND_gene_finding.yaml)
-- [configs/experiment/hg38/BEND_gene_finding_cce_f1_loss.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/experiment/hg38/BEND_gene_finding_cce_f1_loss.yaml)
-- [configs/experiment/hg38/BEND_gene_finding_cce.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/experiment/hg38/BEND_gene_finding_cce.yaml)
-- [src/dataloaders/datasets/BEND_gene_finding_dataset.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/dataloaders/datasets/BEND_gene_finding_dataset.py)
-- [hyena.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/hyena.yaml)
-
-The follwoing files were updated:
-- [src/dataloaders/genomics.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/dataloaders/genomics.py)
-- [src/models/sequence/dna_embedding.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/models/sequence/dna_embedding.py)
-- [src/models/sequence/long_conv_lm.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/models/sequence/long_conv_lm.py)
-- [src/tasks/decoders.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/tasks/decoders.py)
-- [src/tasks/metrics.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/tasks/metrics.py)
-
-Please follow the instructions from nguyen et al. for creating the conda environment or use `conda env create -f hyena.yaml` to create the enviroment with name hyena-dna. 
-```
+Please check out the branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction).
+```bash
+git clone --recurse-submodules https://github.com/NoJungi/hyena-dna.git
 cd hyena-dna
-conda env create -f hyena.yaml
-conda activate hyena-dna
+git checkout add_gene_prediction
 ```
-This enviroment is based on cuda 11.7. To run this repository on the brain cluster the installation of flash_attn is necessary. `m̀odule load cuda/11.7`is required because otherwise flash_attn can not be installed properly. For the installation on the brain cluster follow these steps:
-```
-module load cuda/11.7
-git submodule update --init
-cd flash-attention
-git submodule update --init
-pip install -e . --no-build-isolation
-```
-
-To run the experiments of the gene finding dataset from BEND on a HPC the following files were added:
-- [submit_cce.sh](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/submit_cce.sh)
-- [submit_cce_f1_loss.sh](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/submit_cce_f1_loss.sh)
-- [submit_fine_tuning_cce.sh](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/submit_fine_tuning_cce.sh)
-- [submit_fine_tuning_cce_f1_loss.sh](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/submit_fine_tuning_cce_f1_loss.sh)
-  
-These submit files can be adapted to directly start training for different parameter settings without the need of adding new configuration files.
-
-To download pretrained HyenaDNA weights follow the describtions from the [Huggingface](#huggingface) section.
-The files needed for the gene finding dataset from BEND can be downloaded following the describtion from the [BEND repository](https://github.com/frederikkemarin/BEND).
 
 # HyenaDNA
 
