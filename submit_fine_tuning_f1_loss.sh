@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=tiny_128_fully_tuned
+#SBATCH --job-name=tiny_128
 #SBATCH --output=slurm/fine_tuning_CNN_BEND_tiny_128_d_model_fully_tuned_00006_lr_32_batch_size_50_epochs_%j.out
 #SBATCH --error=slurm/fine_tuning_CNN_BEND_tiny_128_d_model_fully_tuned_00006_lr_32_batch_size_50_epochs_%j.err
 #SBATCH --nodes=1
@@ -10,28 +10,26 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 
-PRETRAINED_MODEL="hyenadna-tiny-1k-seqlen" # "hyenadna-tiny-1k-seqlen-d256" #
+PRETRAINED_MODEL="hyenadna-tiny-1k-seqlen" # "hyenadna-tiny-1k-seqlen-d256" 
 D_MODEL=128 #128
-FREEZE=False #True  # 
+FREEZE=false #True  
 
 DECODER="CNN_BEND"
 LR=0.00006
 BATCH_SIZE=32
 EPOCHS=50
 
-
 # make name for output dir
-LR_name=$(echo $LR | awk -F. '{print $2}') # only digits after '.'
+LR_NAME=$(echo $LR | awk -F. '{print $2}') # only digits after '.'
 # 'freeze' if FREEZE is True else 'fully_tuned'
-FREEZE_name=$(if [ "$FREEZE" = True ]; then echo "freeze"; else echo "fully_tuned"; fi)
+FREEZE_NAME=$(if [ "$FREEZE" = true ]; then echo "freeze"; else echo "fully_tuned"; fi)
 PRETRAINED_MODEL_PATH="/home/s-nojung/Masterarbeit/Code/hyena-dna/pretrained_weights/${PRETRAINED_MODEL}/weights.ckpt"
 
 DATE=$(date '+%Y-%m-%d_%H-%M-%S')
-# Dynamischen Run-Namen und Ordner bauen
-RUN_NAME="${FREEZE_name}_${BATCH_SIZE}_batch_size_${EPOCHS}_epochs_${DATE}"
-OUT_DIR="./outputs/fine_tuning/CCE_F1_loss/${DECODER}_${PRETRAINED_MODEL}_${LR_name}_lr/${RUN_NAME}"
-WANDB_RUN_NAME="$fine_tuning_F1_loss_${DECODER}_${PRETRAINED_MODEL}_${FREEZE_name}_${BATCH_SIZE}_batch_size_${EPOCHS}_epochs_${LR_name}_lr"
-
+# name for output dir and wandb logging
+RUN_NAME="${FREEZE_NAME}_${BATCH_SIZE}_batch_size_${EPOCHS}_epochs_${DATE}"
+OUT_DIR="./outputs/fine_tuning/CCE_F1_loss/${DECODER}_${PRETRAINED_MODEL}_${LR_NAME}_lr/${RUN_NAME}"
+WANDB_RUN_NAME="fine_tuning_F1_loss_${DECODER}_${PRETRAINED_MODEL}_${FREEZE_NAME}_${BATCH_SIZE}_batch_size_${EPOCHS}_epochs_${LR_NAME}_lr"
 
 echo "start fine tuning with:"
 echo "  pretrained_model   = ${PRETRAINED_MODEL}"
@@ -44,7 +42,7 @@ echo "  epochs             = ${EPOCHS}"
 echo "  Output             = ${OUT_DIR}"
 echo "  wandb Run-Name     = ${WANDB_RUN_NAME}"
 
-# Training starten mit Hydra-Overrides
+# Start training with Hydra overrides
 time python -m train experiment=hg38/gene_finding \
 dataset.batch_size=$BATCH_SIZE \
 model.d_model=$D_MODEL \
