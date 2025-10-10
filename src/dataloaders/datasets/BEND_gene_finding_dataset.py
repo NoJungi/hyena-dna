@@ -4,14 +4,7 @@ import pandas as pd
 import torch
 import numpy as np
 import h5py
-
 from src.dataloaders.datasets.hg38_char_tokenizer import CharacterTokenizer
-
-"""
-
-Dataset for sampling intervals from human refernce genome.
-
-"""
 
 class FastaInterval():
     def __init__(
@@ -36,7 +29,7 @@ class FastaInterval():
 class BendDataset(torch.utils.data.Dataset):
 
     '''
-    Loop thru bed file, retrieve (chr, start, end), query fasta file for sequence.
+    Gene finding dataset from Marin et al., "BEND: BENCHMARKING DNA LANGUAGE MODELS  ON BIOLOGICALLY MEANINGFUL TASKS", 2024.
     
     '''
 
@@ -54,9 +47,9 @@ class BendDataset(torch.utils.data.Dataset):
         Initialize dataset used by BEND for gene finding task. All sequences longer than max_length are 
         split into chunks of max_length. For sequences that are not a multiple of max_length, the last 
         chunk is overlapping with the previous chunk. The overlap is not accounted for in the loss of 
-        validation and test set, since these positions are already predicted in the previous chunk. 
-        Overlapping allows to have full context length for each chunk. When split='train', the overlap 
-        is used two times in one epoch to have full context length for each chunk and no padding.
+        validation and test set. Overlapping allows to have full context length for each chunk. 
+        When split='train', the overlap is used two times in one epoch to have full context length 
+        for each chunk.
         
         Args:
             split:                  'train', 'valid', 'test'
@@ -65,7 +58,7 @@ class BendDataset(torch.utils.data.Dataset):
             label_file:             path to .hdf5 file containing labels for each nucleotide
             max_length:             maximum length of sequences
             add_eos:                whether to add end-of-sequence and start-of-sequence token
-            pad_value:          labels that marked as padding can be ignored for loss and other metrices
+            pad_value:              labels that marked as padding can be ignored for loss and other metrices
         """
 
         self.max_length = max_length

@@ -18,7 +18,7 @@ from src.dataloaders.datasets.chromatin_profile_dataset import ChromatinProfileD
 from src.dataloaders.datasets.species_dataset import SpeciesDataset
 from src.dataloaders.datasets.icl_genomics_dataset import ICLGenomicsDataset
 from src.dataloaders.datasets.hg38_fixed_dataset import HG38FixedDataset
-from src.dataloaders.datasets.gene_finding_dataset import BendDataset
+from src.dataloaders.datasets.BEND_gene_finding_dataset import BendDataset
 
 
 """
@@ -722,7 +722,7 @@ class HG38Fixed(HG38):
         self.dataset_val = self.dataset_train
         self.dataset_test = self.dataset_train
 
-class Bend_gene_finding(HG38):
+class BendGeneFinding(HG38):
     _name_ = "gene_finding"
 
     """Dataloader for Training on Bend gene-finding task."""
