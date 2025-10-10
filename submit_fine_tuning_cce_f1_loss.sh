@@ -12,7 +12,7 @@
 
 PRETRAINED_MODEL="hyenadna-tiny-1k-seqlen" # "hyenadna-tiny-1k-seqlen-d256" 
 D_MODEL=128 #128
-FREEZE=false #True  
+FREEZE=false #true  
 
 DECODER="CNN_BEND"
 LR=0.00006
