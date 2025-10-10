@@ -18,19 +18,21 @@ The follwoing files were updated:
 - [src/tasks/metrics.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/tasks/metrics.py)
 
 Please follow the instructions from nguyen et al. for creating the conda environment or use `conda env create -f hyena.yaml` to create the enviroment with name hyena-dna. 
-```
+```bash
 cd hyena-dna
 conda env create -f hyena.yaml
 conda activate hyena-dna
 ```
-This enviroment is based on cuda 11.7. To run this repository on the brain cluster the installation of flash_attn is necessary. `m̀odule load cuda/11.7`is required because otherwise flash_attn can not be installed properly. For the installation on the brain cluster follow these steps:
-```
+This enviroment is based on cuda 11.7. To run this repository on the brain cluster the installation of flash_attn is necessary. For the installation on the brain cluster follow these steps:
+```bash
 module load cuda/11.7
 git submodule update --init
 cd flash-attention
 git submodule update --init
 pip install -e . --no-build-isolation
 ```
+
+`m̀odule load cuda/11.7`is required because otherwise flash_attn can not be installed properly.
 
 To run the experiments of the gene finding dataset from BEND on a HPC the following files were added:
 - [submit_cce.sh](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/submit_cce.sh)
