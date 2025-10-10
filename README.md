@@ -42,8 +42,11 @@ To run the experiments of the gene finding dataset from BEND on a HPC the follow
   
 These submit files can be adapted to directly start training for different parameter settings without the need of adding new configuration files.
 
+
 To download pretrained HyenaDNA weights follow the describtions from the [Huggingface](#huggingface) section.
 The files needed for the gene finding dataset from BEND can be downloaded following the describtion from the [BEND repository](https://github.com/frederikkemarin/BEND).
+
+To benchmark end-to-end trained HyenaDNA models on the gene prediction task with the BEND framework, see [this repository](https://github.com/NoJungi/BEND) that is a fork of the original [BEND repository](https://github.com/frederikkemarin/BEND) from Marin et al.
 
 # HyenaDNA
 
