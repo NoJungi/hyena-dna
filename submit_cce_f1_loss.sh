@@ -43,7 +43,7 @@ echo "  Run-Name           = ${RUN_NAME}"
 echo "  Output             = ${OUT_DIR}"
 
 # Start training with Hydra overrides
-time python -m train experiment=hg38/gene_finding \
+time python -m train experiment=hg38/BEND_gene_finding_cce_f1_loss \
 dataset.max_length=$MAX_LENGTH \
 dataset.batch_size=$BATCH_SIZE \
 model.d_model=$D_MODEL \

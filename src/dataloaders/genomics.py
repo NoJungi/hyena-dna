@@ -723,7 +723,7 @@ class HG38Fixed(HG38):
         self.dataset_test = self.dataset_train
 
 class BendGeneFinding(HG38):
-    _name_ = "gene_finding"
+    _name_ = "BEND_gene_finding"
 
     """Dataloader for Training on Bend gene-finding task."""
 

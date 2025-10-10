@@ -1,5 +1,5 @@
 # @package _global_
-_name_: gene_finding
+_name_: BEND_gene_finding
 bed_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.bed
 fasta_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/GRCh38.primary_assembly.genome.fa
 label_file: /home/s-nojung/Masterarbeit/Code/hyena-dna/data/gene_finding/gene_finding.hdf5
@@ -9,5 +9,5 @@ pad_value: -100             # default for metrices and loss implemented by Hyena
 d_output: 9                 # not needed by dataset directly but for other config entries
 batch_size: 32              # not needed by dataset directly but for other config entries
 mean_seq_len: 7474          # not needed by dataset directly but for other config entries
-num_sequences: 4783         # not needed by dataset directly but for other config entries  
-train_size: ${eval:${dataset.num_sequences} * ${div_up:${dataset.mean_seq_len}, ${dataset.max_length}}}
+num_sequences: 4783         # not needed by dataset directly but for other config entries
+train_size: ${eval:${num_sequences} * ${div_up:${mean_seq_len}, ${max_length}}}

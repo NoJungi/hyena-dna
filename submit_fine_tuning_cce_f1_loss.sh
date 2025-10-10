@@ -43,7 +43,7 @@ echo "  Output             = ${OUT_DIR}"
 echo "  wandb Run-Name     = ${WANDB_RUN_NAME}"
 
 # Start training with Hydra overrides
-time python -m train experiment=hg38/gene_finding \
+time python -m train experiment=hg38/BEND_gene_finding_cce_f1_loss \
 dataset.batch_size=$BATCH_SIZE \
 model.d_model=$D_MODEL \
 decoder._name_=$DECODER \

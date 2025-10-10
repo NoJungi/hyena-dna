@@ -2,7 +2,7 @@
 defaults:
   - /trainer: default
   - /loader: default
-  - /dataset: gene_finding
+  - /dataset: BEND_gene_finding
   - /task: multiclass_classification
   - /optimizer: adamw
   - /scheduler: plateau
