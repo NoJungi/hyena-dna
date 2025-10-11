@@ -1,6 +1,6 @@
 # Attention
 
-This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "BEND: Benchmarking DNA Language Models on biologically meaningful tasks", 2024, GitHub: [BEND](https://github.com/frederikkemarin/BEND). 
+This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "BEND: Benchmarking DNA Language Models on Biologically Meaningful Tasks", 2024, GitHub: [BEND](https://github.com/frederikkemarin/BEND). 
 
 The follwoing files were added:
 - [configs/dataset/BEND_gene_finding.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/dataset/BEND_gene_finding.yaml)
