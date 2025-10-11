@@ -156,7 +156,9 @@ class SequenceDecoder(Decoder):
     
 class TransposeLayer(nn.Module):
     """
-    From BEND (Marin et al., "BEND: BENCHMARKING DNA LANGUAGE MODELS  ON BIOLOGICALLY MEANINGFUL TASKS", 2024).
+    From BEND (Marin et al., "BEND: Benchmarking DNA Language Models on Biologically Meaningful Tasks", 2024).
+    https://github.com/frederikkemarin/BEND/blob/main/bend/models/downstream.py
+
     Needed for CNN_BEND decoder head.  
     A layer that transposes the input.
     """
@@ -184,7 +186,9 @@ class TransposeLayer(nn.Module):
 
 class CNN_BEND_Decoder(nn.Module):
     """
-    Adapted from BEND (Marin et al., "BEND: BENCHMARKING DNA LANGUAGE MODELS  ON BIOLOGICALLY MEANINGFUL TASKS", 2024). 
+    Adapted from BEND (Marin et al., "BEND: Benchmarking DNA Language Models on Biologically Meaningful Tasks", 2024).
+    https://github.com/frederikkemarin/BEND/blob/main/bend/models/downstream.py
+    
     A two-layer CNN with step size 1, GeLU activation, and a linear layer.
     """
     def __init__(self, d_model, 
