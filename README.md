@@ -19,8 +19,11 @@ The follwoing files were updated:
 
 Please follow the instructions from nguyen et al. for creating the conda environment or use `conda env create -f hyena.yaml` to create the enviroment with name hyena-dna. 
 ```bash
+git clone --recurse-submodules https://github.com/NoJungi/hyena-dna.git
 cd hyena-dna
 git checkout add_gene_prediction
+conda env create -f hyena.yaml
+conda activate hyena-dna
 ```
 This enviroment is based on cuda 11.7. To run this repository on the brain cluster the installation of flash_attn is necessary. For the installation on the brain cluster follow these steps:
 ```bash
