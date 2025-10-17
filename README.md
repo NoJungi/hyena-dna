@@ -1,6 +1,6 @@
 # Attention
 
-This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "BEND: Benchmarking DNA Language Models on Biologically Meaningful Tasks", 2024, GitHub: [BEND](https://github.com/frederikkemarin/BEND). 
+This is a fork of the [original HyenaDNA repository](https://github.com/HazyResearch/hyena-dna). The branch [add_gene_prediction](https://github.com/NoJungi/hyena-dna/tree/add_gene_prediction) adapts the code of HyenaDNA for the training on the gene finding dataset used by Marin et al., "[BEND: Benchmarking DNA Language Models on Biologically Meaningful Tasks](https://arxiv.org/abs/2311.12570)", GitHub: [BEND](https://github.com/frederikkemarin/BEND).
 
 The follwoing files were added:
 - [configs/dataset/BEND_gene_finding.yaml](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/configs/dataset/BEND_gene_finding.yaml)
@@ -17,7 +17,7 @@ The follwoing files were updated:
 - [src/tasks/decoders.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/tasks/decoders.py)
 - [src/tasks/metrics.py](https://github.com/NoJungi/hyena-dna/blob/add_gene_prediction/src/tasks/metrics.py)
 
-Please follow the instructions from nguyen et al. for creating the conda environment or use `conda env create -f hyena.yaml` to create the enviroment with name hyena-dna. 
+Please follow the instructions from Nguyen et al. for creating the conda environment or use `conda env create -f hyena.yaml` to create the enviroment with name hyena-dna. 
 ```bash
 git clone --recurse-submodules https://github.com/NoJungi/hyena-dna.git
 cd hyena-dna
@@ -25,7 +25,7 @@ git checkout add_gene_prediction
 conda env create -f hyena.yaml
 conda activate hyena-dna
 ```
-This enviroment is based on cuda 11.7. To run this repository on the brain cluster the installation of flash_attn is necessary. For the installation on the brain cluster follow these steps:
+This enviroment is based on cuda 11.7. To run this repository the installation of flash_attn is necessary. For the installation on the brain cluster follow these steps:
 ```bash
 module load cuda/11.7
 git submodule update --init
