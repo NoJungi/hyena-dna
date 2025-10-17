@@ -1,4 +1,4 @@
-name: hyena-dna4
+name: hyena-dna
 channels:
   - pytorch
   - nvidia
